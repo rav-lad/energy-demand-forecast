@@ -75,7 +75,7 @@ def plot_pdp(model_type: str, freq: str, features_to_plot: list[str] = None, met
     # === PDP Plot
     n_features = len(features_to_plot)
     n_cols = 3
-    n_rows = (n_features + n_cols - 1) // n_cols  # Ceiling division
+    n_rows = (n_features + n_cols - 1) // n_cols  
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
     axes = axes.flatten()
