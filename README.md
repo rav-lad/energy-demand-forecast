@@ -49,6 +49,8 @@
 
 These models use open-source weather forecasts and historical energy usage to predict short-term demand across geographic regions.
 
+Each model is accompanied by several **Jupyter notebooks** designed to explore various forecasting scenarios. A "scenario" refers to a specific modeling context — for example, training XGBoost with or without lag features, or comparing Ridge vs. Lasso regressions with different feature engineering strategies. These notebooks allow detailed inspection of performance trade-offs, feature importance, and forecast behaviors.
+
 ---
 
 ## Features
@@ -110,6 +112,7 @@ This dataset combines daily electricity and gas consumption with regional weathe
 
 * Gradient boosting decision trees
 * Feature-based tabular model using lagged values and weather inputs
+* Multiple scenario analyses implemented in notebooks (e.g., with/without lags)
 
 ### 3. LightGBM Quantile Regressor
 
@@ -120,6 +123,7 @@ This dataset combines daily electricity and gas consumption with regional weathe
 
 * Ridge and Lasso regression for baseline comparison
 * Lightweight and interpretable
+* Tested across scenarios with different regularization and input representations
 
 ---
 
@@ -156,12 +160,5 @@ python scripts/train_lightgbm_quantile.py
 ## Future Work
 
 * Add inference notebooks for **hourly resolution**
-* Compare models using cross-validation and scoring metrics (MAE, RMSE, Pinball Loss)
-* Add support for **holidays, demographics** as static covariates
 * Build a dashboard for real-time forecast inspection
 * Extend to **load forecasting** and **renewable production**
-
----
-
-
-
