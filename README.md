@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/energy_forecaster_logo.png" width="400">
+  <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/energy_forcaster_logo.png" width="400">
   <br>
 </h1>
 
