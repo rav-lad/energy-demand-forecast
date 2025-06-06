@@ -57,21 +57,18 @@ def predict_lightgbm_quantile(freq: str, lags: str):
             model_path = MODELS_DIR / "Quantile" / "lightgbm_quantile" / f"{target}_q{q}_{freq}_withoutlags.pkl"
             models[(target, q)] = joblib.load(model_path)
 
-    # 5) Vectorized prediction
-    preds = []
-    for i, row in df_test.iterrows():
-        input_row = X.iloc[[i]]
-        out = {
-            "date": row["date"],
-            "insee_region": row["insee_region"]
-        }
-        for target in ["conso_elec_mw", "conso_gaz_mw"]:
-            for q in [5, 50, 95]:
-                out[f"{target}_q{q}"] = float(models[(target, q)].predict(input_row)[0])
-        preds.append(out)
+    # 5) Vectorized prediction (correct and efficient)
+    X = X.reset_index(drop=True)
+    df_test = df_test.reset_index(drop=True)
+
+    df_preds = df_test[["date", "insee_region"]].copy()
+
+    for target in ["conso_elec_mw", "conso_gaz_mw"]:
+        for q in [5, 50, 95]:
+            model = models[(target, q)]
+            df_preds[f"{target}_q{q}"] = model.predict(X)
 
     # 6) Save predictions
-    df_preds = pd.DataFrame(preds)
     out_path = MODELS_DIR / "Quantile" / "lightgbm_quantile" / f"preds_{freq}_direct_withoutlags.csv"
     df_preds.to_csv(out_path, index=False)
     print(f"LightGBM predictions (without lags) saved to {out_path}")

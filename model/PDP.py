@@ -21,7 +21,7 @@ import sys
 sys.path.append(str(BASE_DIR))
 from data_processing.transformation import transform_lightgbm_quantile, transform_regression_and_xgb
 
-def plot_pdp(model_type: str, freq: str, features_to_plot: list[str] = None, method: str = None, lags: str = "without"):
+def plot_pdp(model_type: str, freq: str, features_to_plot: list[str] = None, method: str = None, lags: str = "without"): # type: ignore
     """
     Plot Partial Dependence Plots (PDP) for XGBoost, Linear Regression, and LightGBM Quantile models.
     
@@ -78,7 +78,7 @@ def plot_pdp(model_type: str, freq: str, features_to_plot: list[str] = None, met
     n_rows = (n_features + n_cols - 1) // n_cols  
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
-    axes = axes.flatten()
+    axes = axes.flatten() # type: ignore
 
     for idx, feature in enumerate(features_to_plot):
         ax = axes[idx]

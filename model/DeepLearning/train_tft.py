@@ -13,39 +13,39 @@ from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
 from pytorch_forecasting.data.encoders import MultiNormalizer, TorchNormalizer
 from pytorch_forecasting.metrics import QuantileLoss
 
-# === Chemins ===
+# === Paths ===
 BASE_DIR               = Path(__file__).resolve().parents[2]
 DATA_DIR               = BASE_DIR / "data" / "modified_data"
 CHECKPOINT_DIR         = BASE_DIR / "models" / "tft"
 TRAINING_DATASET_PATH  = CHECKPOINT_DIR / "tft_training_dataset.pt"
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
-# === Import transformation ===
+# === Import transformation function ===
 sys.path.append(str(BASE_DIR))
 from data_processing.transformation import transform_dl
 
 def split_train_val(df: pd.DataFrame, val_size: float = 0.2):
-    df_sorted   = df.sort_values("date").reset_index(drop=True)
-    unique_dates= df_sorted["date"].unique()
-    n_val       = int(len(unique_dates) * val_size)
-    val_start   = unique_dates[-n_val]
+    df_sorted    = df.sort_values("date").reset_index(drop=True)
+    unique_dates = df_sorted["date"].unique()
+    n_val        = int(len(unique_dates) * val_size)
+    val_start    = unique_dates[-n_val]
     return (
         df_sorted[df_sorted["date"] <  val_start],
         df_sorted[df_sorted["date"] >= val_start],
     )
 
 def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
-    print(f"▶ Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}")
+    print(f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}")
 
-    # 1) Chargement + transformation
+    # 1) Load and transform dataset
     df = pd.read_csv(DATA_DIR / f"train_{freq}.csv")
     df["date"] = pd.to_datetime(df["date"])
     df_trans   = transform_dl(df, filter_too_short=True)
 
-    # 2) Split train / val
+    # 2) Split into training and validation sets
     df_train, df_val = split_train_val(df_trans)
 
-    # 3) Création du TimeSeriesDataSet (horizon = 1)
+    # 3) Create TimeSeriesDataSet (forecast horizon = 1)
     target_cols = ["conso_elec_mw", "conso_gaz_mw"]
     training = TimeSeriesDataSet(
         df_train,
@@ -63,51 +63,52 @@ def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
         time_varying_unknown_reals = target_cols,
         max_encoder_length      = 24,
         min_encoder_length      = 12,
-        max_prediction_length   = 1,   # <- horizon = 1
-        min_prediction_length   = 1,   # <- horizon = 1
+        max_prediction_length   = 1,   # forecast horizon = 1
+        min_prediction_length   = 1,   # forecast horizon = 1
         allow_missing_timesteps = True,
         target_normalizer       = MultiNormalizer([TorchNormalizer()] * len(target_cols)),
     )
-    # Sauvegarde du dataset d'entraînement
-    training.save(TRAINING_DATASET_PATH)
+
+    # Save training dataset
+    training.save(TRAINING_DATASET_PATH)  # type: ignore
 
     # 4) DataLoaders
-    val_dataset   = TimeSeriesDataSet.from_dataset(training, df_val)
-    train_loader  = training.to_dataloader(train=True,  batch_size=batch_size, num_workers=4)
-    val_loader    = val_dataset.to_dataloader(train=False, batch_size=batch_size, num_workers=4)
+    val_dataset  = TimeSeriesDataSet.from_dataset(training, df_val)
+    train_loader = training.to_dataloader(train=True,  batch_size=batch_size, num_workers=4)
+    val_loader   = val_dataset.to_dataloader(train=False, batch_size=batch_size, num_workers=4)
 
-    # 5) Modèle
+    # 5) Model
     model = TemporalFusionTransformer.from_dataset(
         training,
-        learning_rate              = 1e-3,
-        hidden_size                = 32,
-        attention_head_size        = 4,
-        dropout                    = 0.1,
-        hidden_continuous_size     = 16,
-        loss                       = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
+        learning_rate               = 1e-3,
+        hidden_size                 = 32,
+        attention_head_size         = 4,
+        dropout                     = 0.1,
+        hidden_continuous_size      = 16,
+        loss                        = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
         reduce_on_plateau_patience = 4,
     )
-    model._is_model_with_custom_step = True  # compat Lightning v2
+    model._is_model_with_custom_step = True  # type: ignore[attr-defined]
 
-    # 6) Entraînement
+    # 6) Training
     trainer = Trainer(
-        max_epochs     = max_epochs,
-        accelerator    = "gpu" if torch.cuda.is_available() and gpus > 0 else "cpu",
-        devices        = gpus if gpus > 0 else 1,
+        max_epochs        = max_epochs,
+        accelerator       = "gpu" if torch.cuda.is_available() and gpus > 0 else "cpu",
+        devices           = gpus if gpus > 0 else 1,
         gradient_clip_val = 0.1,
-        deterministic  = True,
-        callbacks      = [
+        deterministic     = True,
+        callbacks         = [
             EarlyStopping(monitor="val_loss", patience=7),
             ModelCheckpoint(
-                dirpath   = CHECKPOINT_DIR / "checkpoints",
-                filename  = "best_tft",
-                monitor   = "val_loss",
-                save_top_k= 1,
+                dirpath    = CHECKPOINT_DIR / "checkpoints",
+                filename   = "best_tft",
+                monitor    = "val_loss",
+                save_top_k = 1,
             ),
         ],
     )
     trainer.fit(model, train_loader, val_loader)
-    print("✅ Meilleur modèle sauvegardé :", (CHECKPOINT_DIR / "checkpoints/best_tft.ckpt").resolve())
+    print("Best model saved to:", (CHECKPOINT_DIR / "checkpoints/best_tft.ckpt").resolve())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -116,6 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--gpus",       type=int, default=0)
     args = parser.parse_args()
+
     train_tft(
         freq       = args.frequency,
         max_epochs = args.max_epochs,

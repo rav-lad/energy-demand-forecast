@@ -11,17 +11,17 @@ MODIFIED_DIR = BASE_DIR / "data" / "modified_data"
 def rolling_forecast_lightgbm(freq="daily", lags="with"):
     suffix = "withlags" if lags == "with" else "withoutlags"
     
-    # 1) Load train and test sets
+    #Load train and test sets
     df_train = pd.read_csv(MODIFIED_DIR / f"train_{freq}.csv")
     df_test  = pd.read_csv(MODIFIED_DIR / f"test_{freq}.csv")
     for df in (df_train, df_test):
         df["date"] = pd.to_datetime(df["date"])
 
-    # 2) Load used features
+    #Load used features
     with open(MODELS_DIR / f"features_{freq}_{suffix}.json") as f:
         expected_features = json.load(f)
 
-    # 3) Concatenate train and test to build full historical data
+    # Concatenate train and test to build full historical data
     df_full = pd.concat([df_train, df_test], ignore_index=True)
 
     preds = []
@@ -68,7 +68,7 @@ def rolling_forecast_lightgbm(freq="daily", lags="with"):
 
             preds.append(out)
 
-    # 4) Save predictions
+    #Save predictions
     df_preds = pd.DataFrame(preds)
     out_path = MODELS_DIR / f"preds_{freq}_rolling_{suffix}.csv"
     df_preds.to_csv(out_path, index=False)
