@@ -127,11 +127,11 @@ This dataset combines daily electricity and gas consumption with regional weathe
 
 ---
 Results
-This section presents key visual results comparing model performance across selected forecasting scenarios. Each figure is taken from the figures/ folder of this repository and helps illustrate the behavior of different models on regional energy consumption data.
+This section presents key visual results comparing model performance across selected forecasting scenarios. Each figure is taken from the notebook of the specific model.
 
 XGBoost – Classic Setup
 <p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/xgboost_classic.png"" width="600"> </p>
-This figure shows the predictions of the XGBoost model trained on standard features (including lagged consumption and weather variables). It captures key consumption trends with relatively low variance and performs well on medium-term fluctuations.
+This figure shows the predictions of the XGBoost model trained on standard features. It captures key consumption trends with relatively low variance and performs well on medium-term fluctuations.
 
 Ridge Regression – Classic Setup
 <p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/reglin_ridge_classic.png" width="600"> </p>
