@@ -130,19 +130,19 @@ Results
 This section presents key visual results comparing model performance across selected forecasting scenarios. Each figure is taken from the figures/ folder of this repository and helps illustrate the behavior of different models on regional energy consumption data.
 
 XGBoost – Classic Setup
-<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/figures/xgboost_classic.png" width="600"> </p>
+<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/xgboost_classic.png"" width="600"> </p>
 This figure shows the predictions of the XGBoost model trained on standard features (including lagged consumption and weather variables). It captures key consumption trends with relatively low variance and performs well on medium-term fluctuations.
 
 Ridge Regression – Classic Setup
-<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/figures/reglin_ridge_classic.png" width="600"> </p>
+<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/reglin_ridge_classic.png" width="600"> </p>
 The Ridge regression model provides a smoothed estimate of energy demand, with regularization mitigating overfitting. Although interpretable, its ability to model non-linear dependencies is limited compared to tree-based models.
 
 Lasso Regression – Classic Setup
-<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/figures/reglin_lasso_classic.png" width="600"> </p>
+<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/reglin_lasso_classic.png" width="600"> </p>
 Lasso regression applies L1 regularization, which results in feature selection. While it yields sparser models than Ridge, performance is slightly lower in this case due to the model discarding potentially relevant inputs.
 
 LightGBM Quantile Regressor – Region 52 
-<p align="center"> <img src="https://github.com/Trav-lad/energy-demand-forecast/blob/main/figures/lightgbm_52.png" width="600"> </p>
+<p align="center"> <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/lightgbm_52.png" width="600"> </p>
 This plot illustrates the LightGBM quantile predictions for Region 52. It shows the median forecast along with upper and lower quantiles, providing an estimate of predictive uncertainty. This is particularly useful for probabilistic forecasting and risk-aware planning.
 
 
