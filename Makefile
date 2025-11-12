@@ -279,22 +279,6 @@ mlflow-server: ## Start MLflow tracking server
 	@echo "🚀 Starting MLflow server..."
 	mlflow server --backend-store-uri file:./outputs/mlruns --default-artifact-root ./outputs/mlartifacts --host 0.0.0.0
 
-##@ Monitoring
-
-monitoring-up: ## Start Prometheus and Grafana
-	@echo "📊 Starting monitoring stack..."
-	docker-compose -f docker-compose.monitoring.yml up -d
-	@echo "✓ Prometheus: http://localhost:9090"
-	@echo "✓ Grafana: http://localhost:3000 (admin/admin)"
-
-monitoring-down: ## Stop monitoring stack
-	@echo "🛑 Stopping monitoring stack..."
-	docker-compose -f docker-compose.monitoring.yml down
-
-monitoring-logs: ## Show monitoring logs
-	docker-compose -f docker-compose.monitoring.yml logs -f
-
-##@ Airflow
 
 airflow-init: ## Initialize Airflow
 	@echo "🔧 Initializing Airflow..."
