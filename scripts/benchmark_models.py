@@ -27,6 +27,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import json
+import traceback
 import tracemalloc
 
 # Add project root to path
