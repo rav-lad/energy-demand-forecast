@@ -1,0 +1,273 @@
+# =====================================================
+# ENERGY TRADING RESEARCH - CONFIGURATION
+# =====================================================
+
+# Project Metadata
+project:
+  name: "Energy Trading Research"
+  version: "2.0.0"
+  description: "Energy demand forecasting + market research + trading strategies"
+
+# Paths Configuration
+paths:
+  # Data directories
+  data_root: "data"
+  raw_data: "data/raw_data"
+  modified_data: "data/modified_data"
+  transformed_data: "data/transformed_data"
+
+  # Raw data subdirectories
+  raw_energy: "data/raw_data/energy"
+  raw_weather: "data/raw_data/weather"
+  raw_market: "data/raw_data/market_prices"
+  raw_fundamentals: "data/raw_data/fundamentals"
+
+  # Models
+  models_root: "models"
+  demand_models: "models/demand_forecast"
+  price_models: "models/price_forecast"
+  scalers: "models/scalers"
+
+  # Trading
+  trading_root: "trading_system"
+  backtests: "trading_system/backtests"
+  signals: "trading_system/signals"
+
+  # Outputs
+  outputs: "outputs"
+  figures: "outputs/figures"
+  reports: "outputs/reports"
+  logs: "outputs/logs"
+
+# Data Collection Configuration
+data_collection:
+  # Energy data (ODRE)
+  energy:
+    api_url: "https://odre.opendatasoft.com/api/records/1.0/search/"
+    dataset_id: "consommation-quotidienne-brute-regionale"
+    start_date: "2013-01-01"
+    end_date: "2024-12-31"
+    regions:
+      - 11  # Île-de-France
+      - 24  # Centre-Val de Loire
+      - 27  # Bourgogne-Franche-Comté
+      - 28  # Normandie
+      - 32  # Hauts-de-France
+      - 44  # Grand Est
+      - 52  # Pays de la Loire
+      - 53  # Bretagne
+      - 75  # Nouvelle-Aquitaine
+      - 76  # Occitanie
+      - 84  # Auvergne-Rhône-Alpes
+      - 93  # Provence-Alpes-Côte d'Azur
+      - 94  # Corse
+
+  # Weather data (Open-Meteo or GraphCast)
+  weather:
+    provider: "open-meteo"  # or "graphcast"
+    api_url: "https://archive-api.open-meteo.com/v1/archive"
+    variables:
+      - temperature_2m_max
+      - temperature_2m_min
+      - temperature_2m_mean
+      - precipitation_sum
+      - windspeed_10m_max
+      - shortwave_radiation_sum
+      - sunshine_duration
+
+  # Market prices (ENTSO-E)
+  market:
+    provider: "entsoe"
+    api_url: "https://web-api.tp.entsoe.eu/api"
+    # Get your free API key at: https://transparency.entsoe.eu/
+    api_key_env_var: "ENTSOE_API_KEY"  # Set in .env file
+    countries:
+      - "FR"  # France
+      - "DE"  # Germany (for cross-border analysis)
+      - "ES"  # Spain
+      - "IT"  # Italy
+    price_types:
+      - "day_ahead"
+      - "intraday"  # If available
+
+  # Fundamentals (ENTSO-E)
+  fundamentals:
+    variables:
+      - "generation_per_type"  # Production by source
+      - "load"  # Actual vs forecasted load
+      - "cross_border_flows"  # Imports/exports
+      - "installed_capacity"  # Capacity per source
+
+# GraphCast Configuration (Future)
+graphcast:
+  enabled: false
+  # Will be configured when integrating GraphCast
+  resolution: "0.25"  # degrees
+  forecast_horizon: 240  # hours (10 days)
+  variables:
+    - "temperature_2m"
+    - "u_component_of_wind_10m"
+    - "v_component_of_wind_10m"
+    - "total_precipitation"
+    - "surface_solar_radiation_downwards"
+
+# Model Training Configuration
+models:
+  # Demand forecasting models
+  demand_forecast:
+    xgboost:
+      frequency: "daily"  # or "hourly"
+      params:
+        n_estimators: 1000
+        learning_rate: 0.01
+        max_depth: 7
+        subsample: 0.8
+        colsample_bytree: 0.8
+
+    lightgbm:
+      frequency: "daily"
+      quantiles: [0.05, 0.5, 0.95]
+      params:
+        num_leaves: 31
+        learning_rate: 0.01
+        n_estimators: 1000
+
+    tft:
+      frequency: "daily"
+      max_epochs: 30
+      batch_size: 128
+      learning_rate: 0.001
+      hidden_size: 64
+      attention_head_size: 4
+      dropout: 0.1
+      max_encoder_length: 60
+      max_prediction_length: 7
+
+  # Price forecasting models (to be developed)
+  price_forecast:
+    enabled: true
+    target: "day_ahead_price"
+    features:
+      - "predicted_demand"
+      - "renewable_production_forecast"
+      - "residual_load"
+      - "weather_variables"
+      - "lagged_prices"
+
+# Trading Strategy Configuration
+trading:
+  # Strategy selection
+  active_strategy: "demand_price_arbitrage"
+
+  # General parameters
+  general:
+    initial_capital: 100000  # EUR
+    max_position_size: 10000  # MWh
+    max_positions: 5
+    transaction_cost: 0.001  # 0.1% per trade
+    slippage_model: "fixed"  # or "proportional"
+    slippage_value: 0.0005  # 0.05%
+
+  # Risk management
+  risk:
+    max_daily_loss: 5000  # EUR
+    max_drawdown: 0.15  # 15%
+    position_sizing: "fixed"  # or "kelly", "volatility_scaled"
+    stop_loss: 0.05  # 5% per position
+
+  # Strategy: Demand-Price Arbitrage
+  demand_price_arbitrage:
+    enabled: true
+    signals:
+      buy_threshold: 0.95  # Buy if demand > 95th percentile
+      sell_threshold: 0.25  # Sell if demand < 25th percentile
+      renewable_threshold_high: 0.7  # 70% renewable = sell signal
+      renewable_threshold_low: 0.3  # 30% renewable = buy signal
+    position_sizing:
+      base_size: 1000  # MWh
+      scale_with_confidence: true
+
+  # Strategy: Cross-Regional Arbitrage
+  cross_regional_arbitrage:
+    enabled: false  # To be implemented
+    regions:
+      - ["FR", "DE"]
+      - ["FR", "ES"]
+    threshold_spread: 10  # EUR/MWh minimum spread
+
+  # Strategy: Renewable Production Trading
+  renewable_trading:
+    enabled: false  # To be implemented
+    wind_threshold: 8  # m/s
+    solar_threshold: 500  # W/m²
+
+# Backtesting Configuration
+backtesting:
+  # Time period
+  start_date: "2020-01-01"
+  end_date: "2024-11-12"
+
+  # Validation strategy
+  validation_method: "walk_forward"  # or "expanding_window"
+  train_period_days: 730  # 2 years
+  test_period_days: 90  # 3 months
+
+  # Performance metrics
+  metrics:
+    - "total_return"
+    - "sharpe_ratio"
+    - "sortino_ratio"
+    - "max_drawdown"
+    - "win_rate"
+    - "profit_factor"
+    - "calmar_ratio"
+    - "avg_trade_duration"
+
+  # Reporting
+  generate_report: true
+  save_trades: true
+  plot_equity_curve: true
+
+# Market Research Configuration
+research:
+  # Analysis to perform
+  analyses:
+    - "price_drivers"
+    - "demand_price_correlation"
+    - "weather_impact"
+    - "renewable_integration"
+    - "regional_dynamics"
+    - "seasonality"
+    - "extreme_events"
+
+  # Feature importance
+  feature_importance:
+    methods:
+      - "shap"
+      - "permutation"
+      - "partial_dependence"
+    top_n_features: 20
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_to_file: true
+  log_file: "outputs/logs/trading_research.log"
+  log_to_console: true
+
+# Visualization Configuration
+visualization:
+  style: "seaborn"
+  figsize: [12, 6]
+  dpi: 300
+  save_format: "png"
+  color_palette: "tab10"
+
+# Monitoring & Alerts (Future)
+monitoring:
+  enabled: false
+  alert_on_loss: true
+  alert_threshold: 1000  # EUR
+  email_alerts: false
+  dashboard_port: 8050  # For Streamlit/Dash dashboard
