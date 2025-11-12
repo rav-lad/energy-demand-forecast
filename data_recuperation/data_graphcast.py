@@ -34,8 +34,7 @@ import pandas as pd
 import numpy as np
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -45,54 +44,53 @@ logger = logging.getLogger(__name__)
 # ===========================================================================
 
 GRAPHCAST_CONFIG = {
-    'resolution': 0.25,  # degrees
-    'forecast_horizon_days': 10,
-    'update_frequency_hours': 6,
-    'variables': [
+    "resolution": 0.25,  # degrees
+    "forecast_horizon_days": 10,
+    "update_frequency_hours": 6,
+    "variables": [
         # Surface variables
-        '2m_temperature',
-        '10m_u_component_of_wind',
-        '10m_v_component_of_wind',
-        'mean_sea_level_pressure',
-        'total_precipitation',
-        'surface_solar_radiation_downwards',
-        'surface_thermal_radiation_downwards',
-
+        "2m_temperature",
+        "10m_u_component_of_wind",
+        "10m_v_component_of_wind",
+        "mean_sea_level_pressure",
+        "total_precipitation",
+        "surface_solar_radiation_downwards",
+        "surface_thermal_radiation_downwards",
         # Atmospheric variables (multiple pressure levels)
-        'temperature',  # 500 hPa, 850 hPa, etc.
-        'geopotential',
-        'u_component_of_wind',
-        'v_component_of_wind',
-        'specific_humidity',
-
+        "temperature",  # 500 hPa, 850 hPa, etc.
+        "geopotential",
+        "u_component_of_wind",
+        "v_component_of_wind",
+        "specific_humidity",
         # Derived for energy applications
-        'wind_speed_10m',  # Calculated from u/v components
-        'wind_direction_10m',
-        'solar_radiation_cumulative',
-    ]
+        "wind_speed_10m",  # Calculated from u/v components
+        "wind_direction_10m",
+        "solar_radiation_cumulative",
+    ],
 }
 
 # France region coordinates (approximate centers)
 FRANCE_REGIONS = {
-    11: {'name': 'Île-de-France', 'lat': 48.8566, 'lon': 2.3522},
-    24: {'name': 'Centre-Val de Loire', 'lat': 47.9029, 'lon': 1.9039},
-    27: {'name': 'Bourgogne-Franche-Comté', 'lat': 47.2805, 'lon': 4.9995},
-    28: {'name': 'Normandie', 'lat': 49.1829, 'lon': 0.3707},
-    32: {'name': 'Hauts-de-France', 'lat': 50.4801, 'lon': 2.7937},
-    44: {'name': 'Grand Est', 'lat': 48.7000, 'lon': 6.1878},
-    52: {'name': 'Pays de la Loire', 'lat': 47.7633, 'lon': -0.3292},
-    53: {'name': 'Bretagne', 'lat': 48.2020, 'lon': -2.9326},
-    75: {'name': 'Nouvelle-Aquitaine', 'lat': 45.7057, 'lon': 0.6348},
-    76: {'name': 'Occitanie', 'lat': 43.8927, 'lon': 3.2827},
-    84: {'name': 'Auvergne-Rhône-Alpes', 'lat': 45.4472, 'lon': 4.3854},
-    93: {'name': 'Provence-Alpes-Côte d\'Azur', 'lat': 43.9352, 'lon': 6.0679},
-    94: {'name': 'Corse', 'lat': 42.0396, 'lon': 9.0129},
+    11: {"name": "Île-de-France", "lat": 48.8566, "lon": 2.3522},
+    24: {"name": "Centre-Val de Loire", "lat": 47.9029, "lon": 1.9039},
+    27: {"name": "Bourgogne-Franche-Comté", "lat": 47.2805, "lon": 4.9995},
+    28: {"name": "Normandie", "lat": 49.1829, "lon": 0.3707},
+    32: {"name": "Hauts-de-France", "lat": 50.4801, "lon": 2.7937},
+    44: {"name": "Grand Est", "lat": 48.7000, "lon": 6.1878},
+    52: {"name": "Pays de la Loire", "lat": 47.7633, "lon": -0.3292},
+    53: {"name": "Bretagne", "lat": 48.2020, "lon": -2.9326},
+    75: {"name": "Nouvelle-Aquitaine", "lat": 45.7057, "lon": 0.6348},
+    76: {"name": "Occitanie", "lat": 43.8927, "lon": 3.2827},
+    84: {"name": "Auvergne-Rhône-Alpes", "lat": 45.4472, "lon": 4.3854},
+    93: {"name": "Provence-Alpes-Côte d'Azur", "lat": 43.9352, "lon": 6.0679},
+    94: {"name": "Corse", "lat": 42.0396, "lon": 9.0129},
 }
 
 
 # ===========================================================================
 # GRAPHCAST DATA FETCHER (TO BE IMPLEMENTED)
 # ===========================================================================
+
 
 class GraphCastDataFetcher:
     """
@@ -202,6 +200,7 @@ class GraphCastDataFetcher:
 # ALTERNATIVE: USE GRAPHCAST VIA API (IF AVAILABLE)
 # ===========================================================================
 
+
 def fetch_graphcast_via_api(start_date, end_date, lat, lon):
     """
     Fetch GraphCast forecasts via API (if service exists).
@@ -234,6 +233,7 @@ def fetch_graphcast_via_api(start_date, end_date, lat, lon):
 # FALLBACK: CONTINUE USING OPEN-METEO
 # ===========================================================================
 
+
 def use_open_meteo_instead():
     """
     Fallback to Open-Meteo API.
@@ -254,6 +254,7 @@ def use_open_meteo_instead():
 # ===========================================================================
 # UTILITY FUNCTIONS
 # ===========================================================================
+
 
 def calculate_wind_speed(u_component, v_component):
     """
@@ -331,9 +332,10 @@ def estimate_wind_production(wind_speed, capacity_mw=1000):
 # MAIN FUNCTION (PLACEHOLDER)
 # ===========================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(
-        description='GraphCast weather data integration (PLACEHOLDER)',
+        description="GraphCast weather data integration (PLACEHOLDER)",
         epilog="""
 Current Status: NOT IMPLEMENTED
 
@@ -347,19 +349,19 @@ GraphCast Integration Roadmap:
   Week 9-10: Integrate with existing energy models
 
 For now, Open-Meteo provides sufficient weather forecasts.
-        """
+        """,
     )
 
-    parser.add_argument('--start_date', type=str, default='2024-01-01')
-    parser.add_argument('--end_date', type=str, default='2024-12-31')
-    parser.add_argument('--regions', nargs='+', default=['FR'])
-    parser.add_argument('--output', type=str, default='data/raw_data/graphcast/')
+    parser.add_argument("--start_date", type=str, default="2024-01-01")
+    parser.add_argument("--end_date", type=str, default="2024-12-31")
+    parser.add_argument("--regions", nargs="+", default=["FR"])
+    parser.add_argument("--output", type=str, default="data/raw_data/graphcast/")
 
     args = parser.parse_args()
 
-    logger.warning("="*70)
+    logger.warning("=" * 70)
     logger.warning("GRAPHCAST INTEGRATION NOT YET IMPLEMENTED")
-    logger.warning("="*70)
+    logger.warning("=" * 70)
     logger.info("\nThis is a placeholder script for future GraphCast integration.")
     logger.info("GraphCast provides:")
     logger.info("  ✓ 0.25° resolution (28 km) global forecasts")
@@ -377,11 +379,11 @@ For now, Open-Meteo provides sufficient weather forecasts.
     logger.info("  Model: https://huggingface.co/google/graphcast")
 
     logger.info("\nSee MODELS.md for GraphCast integration plan.")
-    logger.warning("="*70 + "\n")
+    logger.warning("=" * 70 + "\n")
 
     # Fallback to Open-Meteo
     use_open_meteo_instead()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

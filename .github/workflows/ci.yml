@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+  security-events: write  # Required for CodeQL/Trivy
+
 jobs:
   test:
     runs-on: ubuntu-latest

@@ -6,16 +6,18 @@ from lightgbm import LGBMRegressor, early_stopping, log_evaluation
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit
 
-BASE_DIR   = Path(__file__).resolve().parents[2]
-RAW_DIR    = BASE_DIR / "data" / "modified_data" 
+BASE_DIR = Path(__file__).resolve().parents[2]
+RAW_DIR = BASE_DIR / "data" / "modified_data"
 MODELS_DIR = BASE_DIR / "models" / "Quantile" / "lightgbm_quantile"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 import sys
+
 sys.path.append(str(BASE_DIR))
 from data_processing.transformation import transform_lightgbm_quantile
 
 QUANTILES = [0.05, 0.5, 0.95]
+
 
 def train_lightgbm_quantile(frequency: str, lags: str):
     lags_bool = lags == "with"
@@ -25,7 +27,9 @@ def train_lightgbm_quantile(frequency: str, lags: str):
     df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
 
     # 2) Transform data
-    df = transform_lightgbm_quantile(df_raw, frequency=frequency, save=True, lags=lags_bool)
+    df = transform_lightgbm_quantile(
+        df_raw, frequency=frequency, save=True, lags=lags_bool
+    )
 
     # 3) Split X / y
     y = df[["conso_elec_mw", "conso_gaz_mw"]]
@@ -61,16 +65,14 @@ def train_lightgbm_quantile(frequency: str, lags: str):
                 y_train, y_val = y_target[train_idx], y_target[val_idx]
 
                 model = LGBMRegressor(
-                    objective="quantile",
-                    alpha=q,
-                    random_state=42,
-                    **params
+                    objective="quantile", alpha=q, random_state=42, **params
                 )
 
                 model.fit(
-                    X_train, y_train,
+                    X_train,
+                    y_train,
                     eval_set=[(X_val, y_val)],
-                    callbacks=[early_stopping(stopping_rounds=50), log_evaluation(0)]
+                    callbacks=[early_stopping(stopping_rounds=50), log_evaluation(0)],
                 )
 
                 pred_val = model.predict(X_val)
@@ -88,10 +90,13 @@ def train_lightgbm_quantile(frequency: str, lags: str):
             results[target][f"q{int(q*100)}"] = {
                 "mse": round(mse_train, 6),
                 "rmse": round(np.sqrt(mse_train), 6),
-                "val_rmse": round(best_rmse, 6)
+                "val_rmse": round(best_rmse, 6),
             }
 
-            joblib.dump(best_model, MODELS_DIR / f"{target}_q{int(q*100)}_{frequency}_{suffix}.pkl")
+            joblib.dump(
+                best_model,
+                MODELS_DIR / f"{target}_q{int(q*100)}_{frequency}_{suffix}.pkl",
+            )
 
     # 6) Save metrics
     with open(MODELS_DIR / f"metrics_{frequency}_{suffix}.json", "w") as f:
@@ -102,11 +107,14 @@ def train_lightgbm_quantile(frequency: str, lags: str):
     for tgt, scores in results.items():
         print(f"{tgt}")
         for q, met in scores.items():
-            print(f"   {q}: MSE={met['mse']:.4f}, RMSE={met['rmse']:.4f}, val_RMSE={met['val_rmse']:.4f}")
+            print(
+                f"   {q}: MSE={met['mse']:.4f}, RMSE={met['rmse']:.4f}, val_RMSE={met['val_rmse']:.4f}"
+            )
 
 
 if __name__ == "__main__":
     import argparse
+
     p = argparse.ArgumentParser()
     p.add_argument("--frequency", choices=["daily", "hourly"], required=True)
     p.add_argument("--lags", choices=["with", "without"], default="with")

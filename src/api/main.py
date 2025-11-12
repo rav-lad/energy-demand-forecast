@@ -18,7 +18,13 @@ import pandas as pd
 import pickle
 from pathlib import Path
 import logging
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import (
+    Counter,
+    Histogram,
+    Gauge,
+    generate_latest,
+    CONTENT_TYPE_LATEST,
+)
 from fastapi.responses import Response
 import time
 
@@ -30,51 +36,69 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Energy Demand Forecasting API",
     description="REST API for energy consumption predictions and trading signals",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Prometheus metrics
-REQUEST_COUNT = Counter('api_requests_total', 'Total API requests', ['endpoint', 'method'])
-REQUEST_LATENCY = Histogram('api_request_latency_seconds', 'Request latency', ['endpoint'])
-PREDICTION_COUNT = Counter('predictions_total', 'Total predictions made', ['model'])
-MODEL_LOAD_TIME = Gauge('model_load_time_seconds', 'Time to load model', ['model'])
-ACTIVE_MODELS = Gauge('active_models', 'Number of loaded models')
+REQUEST_COUNT = Counter(
+    "api_requests_total", "Total API requests", ["endpoint", "method"]
+)
+REQUEST_LATENCY = Histogram(
+    "api_request_latency_seconds", "Request latency", ["endpoint"]
+)
+PREDICTION_COUNT = Counter("predictions_total", "Total predictions made", ["model"])
+MODEL_LOAD_TIME = Gauge("model_load_time_seconds", "Time to load model", ["model"])
+ACTIVE_MODELS = Gauge("active_models", "Number of loaded models")
 
 
 # =============================================================================
 # Pydantic Models
 # =============================================================================
 
+
 class WeatherInput(BaseModel):
     """Weather features for prediction."""
-    temperature_2m_max: float = Field(..., ge=-50, le=50, description="Max temperature in °C")
-    temperature_2m_min: float = Field(..., ge=-50, le=50, description="Min temperature in °C")
-    precipitation_sum: float = Field(..., ge=0, description="Precipitation sum in mm")
-    wind_speed_10m_max: float = Field(..., ge=0, le=200, description="Max wind speed in km/h")
-    shortwave_radiation_sum: float = Field(..., ge=0, description="Solar radiation in Wh/m²")
 
-    @field_validator('temperature_2m_min')
+    temperature_2m_max: float = Field(
+        ..., ge=-50, le=50, description="Max temperature in °C"
+    )
+    temperature_2m_min: float = Field(
+        ..., ge=-50, le=50, description="Min temperature in °C"
+    )
+    precipitation_sum: float = Field(..., ge=0, description="Precipitation sum in mm")
+    wind_speed_10m_max: float = Field(
+        ..., ge=0, le=200, description="Max wind speed in km/h"
+    )
+    shortwave_radiation_sum: float = Field(
+        ..., ge=0, description="Solar radiation in Wh/m²"
+    )
+
+    @field_validator("temperature_2m_min")
     @classmethod
     def validate_temp_min_max(cls, v, info):
         """Ensure min temp <= max temp."""
-        if 'temperature_2m_max' in info.data and v > info.data['temperature_2m_max']:
-            raise ValueError('temperature_2m_min must be <= temperature_2m_max')
+        if "temperature_2m_max" in info.data and v > info.data["temperature_2m_max"]:
+            raise ValueError("temperature_2m_min must be <= temperature_2m_max")
         return v
 
 
 class PredictionRequest(BaseModel):
     """Request for energy demand prediction."""
+
     date: date = Field(..., description="Date for prediction")
     weather: WeatherInput
-    region: Optional[str] = Field('FR', description="Region code")
-    model: Optional[str] = Field('xgboost', description="Model to use")
+    region: Optional[str] = Field("FR", description="Region code")
+    model: Optional[str] = Field("xgboost", description="Model to use")
     include_confidence: bool = Field(False, description="Include prediction intervals")
 
 
 class EnergyPrediction(BaseModel):
     """Energy demand prediction result."""
+
     date: date
-    electricity_mw: float = Field(..., description="Predicted electricity consumption in MW")
+    electricity_mw: float = Field(
+        ..., description="Predicted electricity consumption in MW"
+    )
     gas_mw: float = Field(..., description="Predicted gas consumption in MW")
     model: str
     confidence: Optional[Dict[str, Any]] = None
@@ -82,6 +106,7 @@ class EnergyPrediction(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Response containing prediction."""
+
     prediction: EnergyPrediction
     timestamp: datetime
     request_id: Optional[str] = None
@@ -89,6 +114,7 @@ class PredictionResponse(BaseModel):
 
 class ModelInfo(BaseModel):
     """Information about an available model."""
+
     name: str
     type: str
     version: Optional[str] = None
@@ -98,6 +124,7 @@ class ModelInfo(BaseModel):
 
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str
     timestamp: datetime
     models_loaded: int
@@ -107,6 +134,7 @@ class HealthResponse(BaseModel):
 # =============================================================================
 # Model Manager
 # =============================================================================
+
 
 class ModelManager:
     """Manages loading and caching of ML models."""
@@ -135,10 +163,13 @@ class ModelManager:
 
         # Find model file
         model_paths = {
-            'xgboost': self.models_dir / 'xgboost' / 'xgboost_model_daily.pkl',
-            'lightgbm': self.models_dir / 'Quantile' / 'lightgbm_quantile' / 'lightgbm_quantile_model_daily.pkl',
-            'ridge': self.models_dir / 'reg_lin' / 'ridge_model_daily.pkl',
-            'lasso': self.models_dir / 'reg_lin' / 'lasso_model_daily.pkl',
+            "xgboost": self.models_dir / "xgboost" / "xgboost_model_daily.pkl",
+            "lightgbm": self.models_dir
+            / "Quantile"
+            / "lightgbm_quantile"
+            / "lightgbm_quantile_model_daily.pkl",
+            "ridge": self.models_dir / "reg_lin" / "ridge_model_daily.pkl",
+            "lasso": self.models_dir / "reg_lin" / "lasso_model_daily.pkl",
         }
 
         if model_name not in model_paths:
@@ -152,7 +183,7 @@ class ModelManager:
         # Load model
         start_time = time.time()
 
-        with open(model_path, 'rb') as f:
+        with open(model_path, "rb") as f:
             model = pickle.load(f)
 
         load_time = time.time() - start_time
@@ -160,10 +191,10 @@ class ModelManager:
         # Cache model
         self.loaded_models[model_name] = model
         self.model_info[model_name] = {
-            'type': model_name,
-            'path': str(model_path),
-            'loaded_at': datetime.now(),
-            'load_time': load_time
+            "type": model_name,
+            "path": str(model_path),
+            "loaded_at": datetime.now(),
+            "load_time": load_time,
         }
 
         # Update metrics
@@ -182,13 +213,15 @@ class ModelManager:
         """List all available models."""
         models = []
 
-        for name in ['xgboost', 'lightgbm', 'ridge', 'lasso', 'tft']:
-            models.append(ModelInfo(
-                name=name,
-                type=name,
-                loaded=name in self.loaded_models,
-                metrics=None  # TODO: Load from metadata
-            ))
+        for name in ["xgboost", "lightgbm", "ridge", "lasso", "tft"]:
+            models.append(
+                ModelInfo(
+                    name=name,
+                    type=name,
+                    loaded=name in self.loaded_models,
+                    metrics=None,  # TODO: Load from metadata
+                )
+            )
 
         return models
 
@@ -208,33 +241,34 @@ model_manager = ModelManager()
 # API Endpoints
 # =============================================================================
 
+
 @app.get("/", tags=["General"])
 async def root():
     """Root endpoint."""
     return {
         "message": "Energy Demand Forecasting API",
         "version": "1.0.0",
-        "endpoints": ["/predict", "/models", "/health", "/metrics"]
+        "endpoints": ["/predict", "/models", "/health", "/metrics"],
     }
 
 
 @app.get("/health", response_model=HealthResponse, tags=["General"])
 async def health_check():
     """Health check endpoint."""
-    REQUEST_COUNT.labels(endpoint='/health', method='GET').inc()
+    REQUEST_COUNT.labels(endpoint="/health", method="GET").inc()
 
     return HealthResponse(
         status="healthy",
         timestamp=datetime.now(),
         models_loaded=len(model_manager.loaded_models),
-        uptime_seconds=time.time() - model_manager.start_time
+        uptime_seconds=time.time() - model_manager.start_time,
     )
 
 
 @app.get("/models", response_model=List[ModelInfo], tags=["Models"])
 async def list_models():
     """List all available models."""
-    REQUEST_COUNT.labels(endpoint='/models', method='GET').inc()
+    REQUEST_COUNT.labels(endpoint="/models", method="GET").inc()
 
     return model_manager.list_models()
 
@@ -252,27 +286,31 @@ async def predict(request: PredictionRequest):
     """
     start_time = time.time()
 
-    REQUEST_COUNT.labels(endpoint='/predict', method='POST').inc()
+    REQUEST_COUNT.labels(endpoint="/predict", method="POST").inc()
 
     try:
         # Load model
         model = model_manager.get_model(request.model)
 
         # Prepare features
-        features = pd.DataFrame([{
-            'temperature_2m_max': request.weather.temperature_2m_max,
-            'temperature_2m_min': request.weather.temperature_2m_min,
-            'precipitation_sum': request.weather.precipitation_sum,
-            'wind_speed_10m_max': request.weather.wind_speed_10m_max,
-            'shortwave_radiation_sum': request.weather.shortwave_radiation_sum,
-        }])
+        features = pd.DataFrame(
+            [
+                {
+                    "temperature_2m_max": request.weather.temperature_2m_max,
+                    "temperature_2m_min": request.weather.temperature_2m_min,
+                    "precipitation_sum": request.weather.precipitation_sum,
+                    "wind_speed_10m_max": request.weather.wind_speed_10m_max,
+                    "shortwave_radiation_sum": request.weather.shortwave_radiation_sum,
+                }
+            ]
+        )
 
         # Add derived features
-        features['temperature_2m_mean'] = (
-            features['temperature_2m_max'] + features['temperature_2m_min']
+        features["temperature_2m_mean"] = (
+            features["temperature_2m_max"] + features["temperature_2m_min"]
         ) / 2
-        features['temp_range'] = (
-            features['temperature_2m_max'] - features['temperature_2m_min']
+        features["temp_range"] = (
+            features["temperature_2m_max"] - features["temperature_2m_min"]
         )
 
         # Make prediction
@@ -292,22 +330,28 @@ async def predict(request: PredictionRequest):
                 electricity_mw=elec_mw,
                 gas_mw=gas_mw,
                 model=request.model,
-                confidence=None if not request.include_confidence else {
-                    'electricity_lower': elec_mw * 0.9,
-                    'electricity_upper': elec_mw * 1.1,
-                    'gas_lower': gas_mw * 0.9,
-                    'gas_upper': gas_mw * 1.1,
-                }
+                confidence=(
+                    None
+                    if not request.include_confidence
+                    else {
+                        "electricity_lower": elec_mw * 0.9,
+                        "electricity_upper": elec_mw * 1.1,
+                        "gas_lower": gas_mw * 0.9,
+                        "gas_upper": gas_mw * 1.1,
+                    }
+                ),
             ),
             timestamp=datetime.now(),
-            request_id=None
+            request_id=None,
         )
 
         # Record latency
         latency = time.time() - start_time
-        REQUEST_LATENCY.labels(endpoint='/predict').observe(latency)
+        REQUEST_LATENCY.labels(endpoint="/predict").observe(latency)
 
-        logger.info(f"Prediction made in {latency:.3f}s: elec={elec_mw:.2f} MW, gas={gas_mw:.2f} MW")
+        logger.info(
+            f"Prediction made in {latency:.3f}s: elec={elec_mw:.2f} MW, gas={gas_mw:.2f} MW"
+        )
 
         return response
 
@@ -327,7 +371,7 @@ async def predict_batch(requests: List[PredictionRequest]):
     Returns:
         List of predictions
     """
-    REQUEST_COUNT.labels(endpoint='/predict/batch', method='POST').inc()
+    REQUEST_COUNT.labels(endpoint="/predict/batch", method="POST").inc()
 
     predictions = []
 
@@ -355,7 +399,7 @@ async def startup_event():
 
     # Pre-load default model
     try:
-        model_manager.load_model('xgboost')
+        model_manager.load_model("xgboost")
         logger.info("Pre-loaded default model: xgboost")
     except Exception as e:
         logger.warning(f"Could not pre-load default model: {e}")
@@ -374,10 +418,4 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

@@ -20,13 +20,17 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # === IMPORT TRANSFORMATION ===
 import sys
+
 sys.path.append(str(BASE_DIR))
 from data_processing.transformation import transform_regression_and_xgb
+
 
 def train_reg_lin(model_type: str, frequency: str):
     # === 1. Load data ===
     df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
-    df = transform_regression_and_xgb(df_raw, frequency=frequency, fit_scaler=False, save=False)
+    df = transform_regression_and_xgb(
+        df_raw, frequency=frequency, fit_scaler=False, save=False
+    )
     y = df[["conso_elec_mw", "conso_gaz_mw"]]
     X = df.drop(columns=["conso_elec_mw", "conso_gaz_mw"])
 
@@ -35,14 +39,18 @@ def train_reg_lin(model_type: str, frequency: str):
         best_params_all = json.load(f)
     best_params = best_params_all[model_type]
 
-    base = Lasso(**best_params, max_iter=10000) if model_type == "lasso" else Ridge(**best_params)
+    base = (
+        Lasso(**best_params, max_iter=10000)
+        if model_type == "lasso"
+        else Ridge(**best_params)
+    )
     model = MultiOutputRegressor(base)
 
     # === 3. Train model ===
     model.fit(X, y)
     preds = model.predict(X)
-    mse_e = mean_squared_error(y.iloc[:, 0], preds[:, 0]) # type: ignore
-    mse_g = mean_squared_error(y.iloc[:, 1], preds[:, 1]) # type: ignore
+    mse_e = mean_squared_error(y.iloc[:, 0], preds[:, 0])  # type: ignore
+    mse_g = mean_squared_error(y.iloc[:, 1], preds[:, 1])  # type: ignore
     print(f" Electricity RMSE: {np.sqrt(mse_e):.4f}")
     print(f" Gas RMSE:        {np.sqrt(mse_g):.4f}")
 
@@ -57,6 +65,7 @@ def train_reg_lin(model_type: str, frequency: str):
     with open(features_path, "w") as f:
         json.dump(features, f, indent=4)
     print(f" Features saved: {features_path}")
+
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()

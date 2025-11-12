@@ -39,7 +39,7 @@ class ConfigLoader:
             )
 
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 config = yaml.safe_load(f)
             logger.info(f"Configuration loaded from {self.config_path}")
             return config
@@ -64,7 +64,7 @@ class ConfigLoader:
             >>> config.get('trading.general.initial_capital')
             100000
         """
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         value = self.config
 
         for key in keys:
@@ -77,15 +77,15 @@ class ConfigLoader:
 
     def get_paths(self) -> Dict[str, str]:
         """Get all path configurations."""
-        return self.config.get('paths', {})
+        return self.config.get("paths", {})
 
     def get_trading_config(self) -> Dict[str, Any]:
         """Get trading configuration."""
-        return self.config.get('trading', {})
+        return self.config.get("trading", {})
 
     def get_backtesting_config(self) -> Dict[str, Any]:
         """Get backtesting configuration."""
-        return self.config.get('backtesting', {})
+        return self.config.get("backtesting", {})
 
     def get_model_config(self, model_type: str) -> Dict[str, Any]:
         """
@@ -97,7 +97,7 @@ class ConfigLoader:
         Returns:
             Model configuration dictionary
         """
-        demand_models = self.config.get('models', {}).get('demand_forecast', {})
+        demand_models = self.config.get("models", {}).get("demand_forecast", {})
         return demand_models.get(model_type, {})
 
     def get_data_collection_config(self, data_type: str) -> Dict[str, Any]:
@@ -110,7 +110,7 @@ class ConfigLoader:
         Returns:
             Data collection configuration
         """
-        data_config = self.config.get('data_collection', {})
+        data_config = self.config.get("data_collection", {})
         return data_config.get(data_type, {})
 
     def __repr__(self) -> str:
@@ -150,7 +150,7 @@ def reload_config(config_path: str = None):
     _global_config = ConfigLoader(config_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test configuration loader
     config = get_config()
 
@@ -163,5 +163,5 @@ if __name__ == '__main__':
     print("\nTrading strategies:")
     trading = config.get_trading_config()
     for strategy, settings in trading.items():
-        if isinstance(settings, dict) and settings.get('enabled'):
+        if isinstance(settings, dict) and settings.get("enabled"):
             print(f"  - {strategy}")

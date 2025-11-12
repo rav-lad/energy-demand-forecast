@@ -24,7 +24,7 @@ class PathsConfig(BaseSettings):
     # Project root
     project_root: Path = Field(
         default_factory=lambda: Path(__file__).parent.parent.parent,
-        description="Project root directory"
+        description="Project root directory",
     )
 
     # Data directories
@@ -76,13 +76,15 @@ class DataConfig(BaseSettings):
     end_date: str = Field(default="2024-12-31", description="Data end date")
 
     # Regions
-    countries: List[str] = Field(default=["FR", "DE", "ES"], description="Country codes")
+    countries: List[str] = Field(
+        default=["FR", "DE", "ES"], description="Country codes"
+    )
 
     # API endpoints
     entsoe_api_url: str = "https://web-api.tp.entsoe.eu/api"
     odre_api_url: str = "https://odre.opendatasoft.com/api/records/1.0/search/"
 
-    @field_validator('entsoe_api_key')
+    @field_validator("entsoe_api_key")
     @classmethod
     def validate_api_key(cls, v):
         if not v or v == "your_entsoe_api_key_here":

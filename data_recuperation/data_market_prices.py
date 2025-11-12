@@ -30,8 +30,7 @@ except ImportError:
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -40,15 +39,15 @@ load_dotenv()
 
 # Constants
 COUNTRIES_MAPPING = {
-    'FR': '10YFR-RTE------C',  # France
-    'DE': '10Y1001A1001A83F',  # Germany
-    'ES': '10YES-REE------0',  # Spain
-    'IT': '10YIT-GRTN-----B',  # Italy
-    'BE': '10YBE----------2',  # Belgium
-    'NL': '10YNL----------L',  # Netherlands
-    'CH': '10YCH-SWISSGRIDZ',  # Switzerland
-    'AT': '10YAT-APG------L',  # Austria
-    'GB': '10YGB----------A',  # Great Britain
+    "FR": "10YFR-RTE------C",  # France
+    "DE": "10Y1001A1001A83F",  # Germany
+    "ES": "10YES-REE------0",  # Spain
+    "IT": "10YIT-GRTN-----B",  # Italy
+    "BE": "10YBE----------2",  # Belgium
+    "NL": "10YNL----------L",  # Netherlands
+    "CH": "10YCH-SWISSGRIDZ",  # Switzerland
+    "AT": "10YAT-APG------L",  # Austria
+    "GB": "10YGB----------A",  # Great Britain
 }
 
 
@@ -62,7 +61,7 @@ def get_entsoe_client():
     Raises:
         ValueError: If API key not found
     """
-    api_key = os.getenv('ENTSOE_API_KEY')
+    api_key = os.getenv("ENTSOE_API_KEY")
 
     if not api_key:
         raise ValueError(
@@ -90,29 +89,35 @@ def fetch_day_ahead_prices(client, country_code, start_date, end_date):
         pd.DataFrame: DataFrame with datetime index and price column
     """
     if isinstance(start_date, str):
-        start_date = pd.Timestamp(start_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(start_date, tz="Europe/Paris")
     if isinstance(end_date, str):
-        end_date = pd.Timestamp(end_date, tz='Europe/Paris')
+        end_date = pd.Timestamp(end_date, tz="Europe/Paris")
 
     country_domain = COUNTRIES_MAPPING.get(country_code)
     if not country_domain:
-        raise ValueError(f"Country code {country_code} not supported. Available: {list(COUNTRIES_MAPPING.keys())}")
+        raise ValueError(
+            f"Country code {country_code} not supported. Available: {list(COUNTRIES_MAPPING.keys())}"
+        )
 
-    logger.info(f"Fetching day-ahead prices for {country_code} from {start_date.date()} to {end_date.date()}")
+    logger.info(
+        f"Fetching day-ahead prices for {country_code} from {start_date.date()} to {end_date.date()}"
+    )
 
     try:
         # Fetch day-ahead prices
-        prices = client.query_day_ahead_prices(country_domain, start=start_date, end=end_date)
+        prices = client.query_day_ahead_prices(
+            country_domain, start=start_date, end=end_date
+        )
 
         # Convert to DataFrame if Series
         if isinstance(prices, pd.Series):
-            df = pd.DataFrame(prices, columns=[f'price_{country_code}'])
+            df = pd.DataFrame(prices, columns=[f"price_{country_code}"])
         else:
             df = prices
-            df.columns = [f'price_{country_code}']
+            df.columns = [f"price_{country_code}"]
 
         # Add metadata columns
-        df['country'] = country_code
+        df["country"] = country_code
 
         logger.info(f"Successfully fetched {len(df)} records for {country_code}")
         return df
@@ -147,7 +152,9 @@ def fetch_intraday_prices(client, country_code, start_date, end_date):
     try:
         # Note: This method may not exist or work for all countries
         # You may need to use alternative methods depending on the country
-        prices = client.query_intraday_offered_capacity(country_domain, start=start_date, end=end_date)
+        prices = client.query_intraday_offered_capacity(
+            country_domain, start=start_date, end=end_date
+        )
         logger.info(f"Successfully fetched intraday data for {country_code}")
         return prices
     except Exception as e:
@@ -236,13 +243,13 @@ def merge_country_prices(results, output_dir):
     # Start with first country
     merged = None
     for country, df in results.items():
-        price_col = f'price_{country}'
+        price_col = f"price_{country}"
         df_temp = df[[price_col]].copy()
 
         if merged is None:
             merged = df_temp
         else:
-            merged = merged.join(df_temp, how='outer')
+            merged = merged.join(df_temp, how="outer")
 
     # Save merged data
     output_file = Path(output_dir) / "day_ahead_prices_all_countries.csv"
@@ -254,7 +261,7 @@ def merge_country_prices(results, output_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Fetch electricity market prices from ENTSO-E',
+        description="Fetch electricity market prices from ENTSO-E",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -267,50 +274,44 @@ Examples:
 Available countries:
   FR (France), DE (Germany), ES (Spain), IT (Italy), BE (Belgium),
   NL (Netherlands), CH (Switzerland), AT (Austria), GB (Great Britain)
-        """
+        """,
     )
 
     parser.add_argument(
-        '--start_date',
+        "--start_date", type=str, default="2020-01-01", help="Start date (YYYY-MM-DD)"
+    )
+
+    parser.add_argument(
+        "--end_date",
         type=str,
-        default='2020-01-01',
-        help='Start date (YYYY-MM-DD)'
+        default=datetime.now().strftime("%Y-%m-%d"),
+        help="End date (YYYY-MM-DD)",
     )
 
     parser.add_argument(
-        '--end_date',
+        "--countries",
+        nargs="+",
+        default=["FR"],
+        help="List of country codes (e.g., FR DE ES)",
+    )
+
+    parser.add_argument(
+        "--output_dir",
         type=str,
-        default=datetime.now().strftime('%Y-%m-%d'),
-        help='End date (YYYY-MM-DD)'
+        default="data/raw_data/market_prices",
+        help="Output directory for CSV files",
     )
 
     parser.add_argument(
-        '--countries',
-        nargs='+',
-        default=['FR'],
-        help='List of country codes (e.g., FR DE ES)'
-    )
-
-    parser.add_argument(
-        '--output_dir',
-        type=str,
-        default='data/raw_data/market_prices',
-        help='Output directory for CSV files'
-    )
-
-    parser.add_argument(
-        '--sleep_time',
-        type=int,
-        default=2,
-        help='Seconds to sleep between API calls'
+        "--sleep_time", type=int, default=2, help="Seconds to sleep between API calls"
     )
 
     args = parser.parse_args()
 
     # Validate dates
     try:
-        start_date = pd.Timestamp(args.start_date, tz='Europe/Paris')
-        end_date = pd.Timestamp(args.end_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(args.start_date, tz="Europe/Paris")
+        end_date = pd.Timestamp(args.end_date, tz="Europe/Paris")
 
         if end_date <= start_date:
             raise ValueError("End date must be after start date")
@@ -326,31 +327,27 @@ Available countries:
         logger.error(f"Available countries: {list(COUNTRIES_MAPPING.keys())}")
         sys.exit(1)
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("ENTSO-E Market Prices Data Collection")
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info(f"Date range: {start_date.date()} to {end_date.date()}")
     logger.info(f"Countries: {', '.join(args.countries)}")
     logger.info(f"Output directory: {args.output_dir}")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     # Fetch data
     results = fetch_multiple_countries(
-        args.countries,
-        start_date,
-        end_date,
-        args.output_dir,
-        args.sleep_time
+        args.countries, start_date, end_date, args.output_dir, args.sleep_time
     )
 
     # Merge all countries
     if len(results) > 1:
         merge_country_prices(results, args.output_dir)
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info(f"Completed! Fetched data for {len(results)} countries")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

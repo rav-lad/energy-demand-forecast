@@ -34,8 +34,7 @@ except ImportError:
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -44,45 +43,45 @@ load_dotenv()
 
 # Constants
 COUNTRIES_MAPPING = {
-    'FR': '10YFR-RTE------C',
-    'DE': '10Y1001A1001A83F',
-    'ES': '10YES-REE------0',
-    'IT': '10YIT-GRTN-----B',
-    'BE': '10YBE----------2',
-    'NL': '10YNL----------L',
-    'CH': '10YCH-SWISSGRIDZ',
-    'AT': '10YAT-APG------L',
-    'GB': '10YGB----------A',
+    "FR": "10YFR-RTE------C",
+    "DE": "10Y1001A1001A83F",
+    "ES": "10YES-REE------0",
+    "IT": "10YIT-GRTN-----B",
+    "BE": "10YBE----------2",
+    "NL": "10YNL----------L",
+    "CH": "10YCH-SWISSGRIDZ",
+    "AT": "10YAT-APG------L",
+    "GB": "10YGB----------A",
 }
 
 # Production types mapping
 PRODUCTION_TYPES = {
-    'B01': 'Biomass',
-    'B02': 'Fossil Brown coal/Lignite',
-    'B03': 'Fossil Coal-derived gas',
-    'B04': 'Fossil Gas',
-    'B05': 'Fossil Hard coal',
-    'B06': 'Fossil Oil',
-    'B07': 'Fossil Oil shale',
-    'B08': 'Fossil Peat',
-    'B09': 'Geothermal',
-    'B10': 'Hydro Pumped Storage',
-    'B11': 'Hydro Run-of-river and poundage',
-    'B12': 'Hydro Water Reservoir',
-    'B13': 'Marine',
-    'B14': 'Nuclear',
-    'B15': 'Other renewable',
-    'B16': 'Solar',
-    'B17': 'Waste',
-    'B18': 'Wind Offshore',
-    'B19': 'Wind Onshore',
-    'B20': 'Other',
+    "B01": "Biomass",
+    "B02": "Fossil Brown coal/Lignite",
+    "B03": "Fossil Coal-derived gas",
+    "B04": "Fossil Gas",
+    "B05": "Fossil Hard coal",
+    "B06": "Fossil Oil",
+    "B07": "Fossil Oil shale",
+    "B08": "Fossil Peat",
+    "B09": "Geothermal",
+    "B10": "Hydro Pumped Storage",
+    "B11": "Hydro Run-of-river and poundage",
+    "B12": "Hydro Water Reservoir",
+    "B13": "Marine",
+    "B14": "Nuclear",
+    "B15": "Other renewable",
+    "B16": "Solar",
+    "B17": "Waste",
+    "B18": "Wind Offshore",
+    "B19": "Wind Onshore",
+    "B20": "Other",
 }
 
 
 def get_entsoe_client():
     """Initialize ENTSO-E API client."""
-    api_key = os.getenv('ENTSOE_API_KEY')
+    api_key = os.getenv("ENTSOE_API_KEY")
     if not api_key:
         raise ValueError(
             "ENTSOE_API_KEY not found. Please set it in your .env file.\n"
@@ -109,9 +108,9 @@ def fetch_generation_by_type(client, country_code, start_date, end_date):
         raise ValueError(f"Unsupported country: {country_code}")
 
     if isinstance(start_date, str):
-        start_date = pd.Timestamp(start_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(start_date, tz="Europe/Paris")
     if isinstance(end_date, str):
-        end_date = pd.Timestamp(end_date, tz='Europe/Paris')
+        end_date = pd.Timestamp(end_date, tz="Europe/Paris")
 
     logger.info(f"Fetching generation by type for {country_code}")
 
@@ -121,7 +120,7 @@ def fetch_generation_by_type(client, country_code, start_date, end_date):
             country_domain,
             start=start_date,
             end=end_date,
-            psr_type=None  # Get all types
+            psr_type=None,  # Get all types
         )
 
         if isinstance(generation, pd.DataFrame):
@@ -154,9 +153,9 @@ def fetch_load_data(client, country_code, start_date, end_date):
         raise ValueError(f"Unsupported country: {country_code}")
 
     if isinstance(start_date, str):
-        start_date = pd.Timestamp(start_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(start_date, tz="Europe/Paris")
     if isinstance(end_date, str):
-        end_date = pd.Timestamp(end_date, tz='Europe/Paris')
+        end_date = pd.Timestamp(end_date, tz="Europe/Paris")
 
     logger.info(f"Fetching load data for {country_code}")
 
@@ -165,15 +164,17 @@ def fetch_load_data(client, country_code, start_date, end_date):
     try:
         # Fetch actual load
         actual_load = client.query_load(country_domain, start=start_date, end=end_date)
-        results['actual_load'] = actual_load
+        results["actual_load"] = actual_load
         logger.info(f"Fetched actual load: {len(actual_load)} records")
     except Exception as e:
         logger.error(f"Error fetching actual load: {str(e)}")
 
     try:
         # Fetch day-ahead load forecast
-        forecast_load = client.query_load_forecast(country_domain, start=start_date, end=end_date)
-        results['forecast_load'] = forecast_load
+        forecast_load = client.query_load_forecast(
+            country_domain, start=start_date, end=end_date
+        )
+        results["forecast_load"] = forecast_load
         logger.info(f"Fetched forecast load: {len(forecast_load)} records")
     except Exception as e:
         logger.error(f"Error fetching forecast load: {str(e)}")
@@ -207,24 +208,21 @@ def fetch_cross_border_flows(client, country_from, country_to, start_date, end_d
         raise ValueError(f"Unsupported countries: {country_from} or {country_to}")
 
     if isinstance(start_date, str):
-        start_date = pd.Timestamp(start_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(start_date, tz="Europe/Paris")
     if isinstance(end_date, str):
-        end_date = pd.Timestamp(end_date, tz='Europe/Paris')
+        end_date = pd.Timestamp(end_date, tz="Europe/Paris")
 
     logger.info(f"Fetching cross-border flows: {country_from} -> {country_to}")
 
     try:
         flows = client.query_crossborder_flows(
-            domain_from,
-            domain_to,
-            start=start_date,
-            end=end_date
+            domain_from, domain_to, start=start_date, end=end_date
         )
 
         if isinstance(flows, pd.Series):
-            df = pd.DataFrame(flows, columns=[f'flow_{country_from}_{country_to}'])
-            df['country_from'] = country_from
-            df['country_to'] = country_to
+            df = pd.DataFrame(flows, columns=[f"flow_{country_from}_{country_to}"])
+            df["country_from"] = country_from
+            df["country_to"] = country_to
             logger.info(f"Fetched {len(df)} flow records")
             return df
         else:
@@ -253,17 +251,15 @@ def fetch_installed_capacity(client, country_code, start_date, end_date):
         raise ValueError(f"Unsupported country: {country_code}")
 
     if isinstance(start_date, str):
-        start_date = pd.Timestamp(start_date, tz='Europe/Paris')
+        start_date = pd.Timestamp(start_date, tz="Europe/Paris")
     if isinstance(end_date, str):
-        end_date = pd.Timestamp(end_date, tz='Europe/Paris')
+        end_date = pd.Timestamp(end_date, tz="Europe/Paris")
 
     logger.info(f"Fetching installed capacity for {country_code}")
 
     try:
         capacity = client.query_installed_generation_capacity(
-            country_domain,
-            start=start_date,
-            end=end_date
+            country_domain, start=start_date, end=end_date
         )
 
         logger.info(f"Fetched installed capacity data")
@@ -288,11 +284,21 @@ def calculate_renewable_share(generation_df):
         return None
 
     # Identify renewable columns
-    renewable_types = ['Solar', 'Wind Onshore', 'Wind Offshore', 'Hydro Run-of-river and poundage',
-                       'Hydro Water Reservoir', 'Biomass', 'Geothermal']
+    renewable_types = [
+        "Solar",
+        "Wind Onshore",
+        "Wind Offshore",
+        "Hydro Run-of-river and poundage",
+        "Hydro Water Reservoir",
+        "Biomass",
+        "Geothermal",
+    ]
 
-    renewable_cols = [col for col in generation_df.columns
-                     if any(r_type.lower() in col.lower() for r_type in renewable_types)]
+    renewable_cols = [
+        col
+        for col in generation_df.columns
+        if any(r_type.lower() in col.lower() for r_type in renewable_types)
+    ]
 
     if not renewable_cols:
         logger.warning("No renewable generation columns found")
@@ -300,9 +306,9 @@ def calculate_renewable_share(generation_df):
 
     # Calculate totals
     df = pd.DataFrame()
-    df['total_generation'] = generation_df.sum(axis=1)
-    df['renewable_generation'] = generation_df[renewable_cols].sum(axis=1)
-    df['renewable_share'] = df['renewable_generation'] / df['total_generation'] * 100
+    df["total_generation"] = generation_df.sum(axis=1)
+    df["renewable_generation"] = generation_df[renewable_cols].sum(axis=1)
+    df["renewable_share"] = df["renewable_generation"] / df["total_generation"] * 100
 
     logger.info(f"Average renewable share: {df['renewable_share'].mean():.2f}%")
 
@@ -325,7 +331,7 @@ def save_data(df, filename, output_dir):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Fetch fundamental energy data from ENTSO-E',
+        description="Fetch fundamental energy data from ENTSO-E",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -339,57 +345,68 @@ Examples:
   python data_fundamentals.py --data_type cross_border --country_from FR --country_to DE
 
 Data types: generation, load, cross_border, capacity, all
-        """
+        """,
     )
 
-    parser.add_argument('--start_date', type=str, default='2020-01-01')
-    parser.add_argument('--end_date', type=str, default=datetime.now().strftime('%Y-%m-%d'))
-    parser.add_argument('--country', type=str, default='FR')
-    parser.add_argument('--data_type', type=str, default='all',
-                       choices=['generation', 'load', 'cross_border', 'capacity', 'all'])
-    parser.add_argument('--country_from', type=str, help='For cross-border flows')
-    parser.add_argument('--country_to', type=str, help='For cross-border flows')
-    parser.add_argument('--output_dir', type=str, default='data/raw_data/fundamentals')
+    parser.add_argument("--start_date", type=str, default="2020-01-01")
+    parser.add_argument(
+        "--end_date", type=str, default=datetime.now().strftime("%Y-%m-%d")
+    )
+    parser.add_argument("--country", type=str, default="FR")
+    parser.add_argument(
+        "--data_type",
+        type=str,
+        default="all",
+        choices=["generation", "load", "cross_border", "capacity", "all"],
+    )
+    parser.add_argument("--country_from", type=str, help="For cross-border flows")
+    parser.add_argument("--country_to", type=str, help="For cross-border flows")
+    parser.add_argument("--output_dir", type=str, default="data/raw_data/fundamentals")
 
     args = parser.parse_args()
 
     client = get_entsoe_client()
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("ENTSO-E Fundamental Data Collection")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
-    if args.data_type in ['generation', 'all']:
-        df = fetch_generation_by_type(client, args.country, args.start_date, args.end_date)
-        save_data(df, f'generation_{args.country}.csv', args.output_dir)
+    if args.data_type in ["generation", "all"]:
+        df = fetch_generation_by_type(
+            client, args.country, args.start_date, args.end_date
+        )
+        save_data(df, f"generation_{args.country}.csv", args.output_dir)
 
         # Calculate renewable share
         renewable_df = calculate_renewable_share(df)
-        save_data(renewable_df, f'renewable_share_{args.country}.csv', args.output_dir)
+        save_data(renewable_df, f"renewable_share_{args.country}.csv", args.output_dir)
 
-    if args.data_type in ['load', 'all']:
+    if args.data_type in ["load", "all"]:
         df = fetch_load_data(client, args.country, args.start_date, args.end_date)
-        save_data(df, f'load_{args.country}.csv', args.output_dir)
+        save_data(df, f"load_{args.country}.csv", args.output_dir)
 
-    if args.data_type in ['capacity', 'all']:
-        df = fetch_installed_capacity(client, args.country, args.start_date, args.end_date)
-        save_data(df, f'capacity_{args.country}.csv', args.output_dir)
+    if args.data_type in ["capacity", "all"]:
+        df = fetch_installed_capacity(
+            client, args.country, args.start_date, args.end_date
+        )
+        save_data(df, f"capacity_{args.country}.csv", args.output_dir)
 
-    if args.data_type == 'cross_border':
+    if args.data_type == "cross_border":
         if not args.country_from or not args.country_to:
             logger.error("For cross_border, specify --country_from and --country_to")
             sys.exit(1)
 
         df = fetch_cross_border_flows(
-            client, args.country_from, args.country_to,
-            args.start_date, args.end_date
+            client, args.country_from, args.country_to, args.start_date, args.end_date
         )
-        save_data(df, f'flow_{args.country_from}_{args.country_to}.csv', args.output_dir)
+        save_data(
+            df, f"flow_{args.country_from}_{args.country_to}.csv", args.output_dir
+        )
 
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("Data collection completed!")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -8,12 +8,18 @@ This module provides a clean, optimized pipeline for collecting:
 - Merging and storage as CSV
 """
 
-from .pipeline import WeatherCollector, DataMerger, collect_weather_historical, collect_weather_forecast, merge_all_data
+from .pipeline import (
+    WeatherCollector,
+    DataMerger,
+    collect_weather_historical,
+    collect_weather_forecast,
+    merge_all_data,
+)
 
 __all__ = [
-    'WeatherCollector',
-    'DataMerger',
-    'collect_weather_historical',
-    'collect_weather_forecast',
-    'merge_all_data'
+    "WeatherCollector",
+    "DataMerger",
+    "collect_weather_historical",
+    "collect_weather_forecast",
+    "merge_all_data",
 ]

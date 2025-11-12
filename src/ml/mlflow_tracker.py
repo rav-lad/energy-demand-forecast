@@ -39,7 +39,7 @@ class MLflowTracker:
         self,
         tracking_uri: Optional[str] = None,
         experiment_name: str = "energy-trading",
-        artifact_location: Optional[str] = None
+        artifact_location: Optional[str] = None,
     ):
         """
         Initialize MLflow tracker.
@@ -70,7 +70,9 @@ class MLflowTracker:
 
         self.current_run = None
 
-    def start_run(self, run_name: Optional[str] = None, tags: Optional[Dict[str, str]] = None):
+    def start_run(
+        self, run_name: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+    ):
         """
         Start a new MLflow run.
 
@@ -143,7 +145,7 @@ class MLflowTracker:
         model: Any,
         artifact_path: str = "model",
         registered_model_name: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Log a model.
@@ -155,13 +157,13 @@ class MLflowTracker:
             **kwargs: Additional arguments for log_model
         """
         # Determine model type and log accordingly
-        if hasattr(model, 'fit') and hasattr(model, 'predict'):
+        if hasattr(model, "fit") and hasattr(model, "predict"):
             # Scikit-learn style model
             mlflow.sklearn.log_model(
                 model,
                 artifact_path,
                 registered_model_name=registered_model_name,
-                **kwargs
+                **kwargs,
             )
         else:
             # Generic pickle
@@ -181,9 +183,10 @@ class MLflowTracker:
             filename: Filename for the figure
         """
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / filename
-            figure.savefig(filepath, dpi=150, bbox_inches='tight')
+            figure.savefig(filepath, dpi=150, bbox_inches="tight")
             mlflow.log_artifact(str(filepath))
 
         logger.debug(f"Logged figure: {filename}")
@@ -197,6 +200,7 @@ class MLflowTracker:
             filename: Filename for the CSV
         """
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / filename
             df.to_csv(filepath, index=False)
@@ -213,9 +217,10 @@ class MLflowTracker:
             filename: Filename for the JSON
         """
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / filename
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(data, f, indent=2, default=str)
             mlflow.log_artifact(str(filepath))
 
@@ -228,7 +233,7 @@ class MLflowTracker:
         params: Dict[str, Any],
         metrics: Dict[str, float],
         artifacts: Optional[Dict[str, str]] = None,
-        tags: Optional[Dict[str, str]] = None
+        tags: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Log a complete training session.
@@ -246,13 +251,16 @@ class MLflowTracker:
         """
         # Prepare tags
         run_tags = {
-            'model_type': model_name,
-            'framework': 'sklearn',  # Default
-            **(tags or {})
+            "model_type": model_name,
+            "framework": "sklearn",  # Default
+            **(tags or {}),
         }
 
         # Start run
-        run = self.start_run(run_name=f"{model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}", tags=run_tags)
+        run = self.start_run(
+            run_name=f"{model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            tags=run_tags,
+        )
 
         try:
             # Log parameters
@@ -262,7 +270,9 @@ class MLflowTracker:
             self.log_metrics(metrics)
 
             # Log model
-            self.log_model(model, registered_model_name=f"{self.experiment_name}_{model_name}")
+            self.log_model(
+                model, registered_model_name=f"{self.experiment_name}_{model_name}"
+            )
 
             # Log artifacts
             if artifacts:
@@ -293,12 +303,12 @@ class MLflowTracker:
             run = self.client.get_run(run_id)
 
             run_info = {
-                'run_id': run_id,
-                'run_name': run.data.tags.get('mlflow.runName', 'N/A'),
-                'model_type': run.data.tags.get('model_type', 'N/A'),
-                'start_time': pd.to_datetime(run.info.start_time, unit='ms'),
+                "run_id": run_id,
+                "run_name": run.data.tags.get("mlflow.runName", "N/A"),
+                "model_type": run.data.tags.get("model_type", "N/A"),
+                "start_time": pd.to_datetime(run.info.start_time, unit="ms"),
                 **run.data.params,
-                **run.data.metrics
+                **run.data.metrics,
             }
 
             runs_data.append(run_info)
@@ -325,7 +335,7 @@ class MLflowTracker:
         runs = self.client.search_runs(
             experiment_ids=[experiment_id],
             order_by=[f"metrics.{metric_name} {'ASC' if ascending else 'DESC'}"],
-            max_results=1
+            max_results=1,
         )
 
         if not runs:
@@ -335,12 +345,12 @@ class MLflowTracker:
         best_run = runs[0]
 
         best_info = {
-            'run_id': best_run.info.run_id,
-            'run_name': best_run.data.tags.get('mlflow.runName', 'N/A'),
-            'model_type': best_run.data.tags.get('model_type', 'N/A'),
-            f'best_{metric_name}': best_run.data.metrics.get(metric_name),
-            'params': best_run.data.params,
-            'metrics': best_run.data.metrics
+            "run_id": best_run.info.run_id,
+            "run_name": best_run.data.tags.get("mlflow.runName", "N/A"),
+            "model_type": best_run.data.tags.get("model_type", "N/A"),
+            f"best_{metric_name}": best_run.data.metrics.get(metric_name),
+            "params": best_run.data.params,
+            "metrics": best_run.data.metrics,
         }
 
         logger.info(f"Best run by {metric_name}: {best_info['run_name']}")
@@ -371,7 +381,7 @@ class MLflowTracker:
         run_id: str,
         model_name: str,
         artifact_path: str = "model",
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> str:
         """
         Register a model in the model registry.
@@ -392,9 +402,7 @@ class MLflowTracker:
         # Add description if provided
         if description:
             self.client.update_model_version(
-                name=model_name,
-                version=result.version,
-                description=description
+                name=model_name, version=result.version, description=description
             )
 
         logger.info(f"Registered model: {model_name} (version {result.version})")
@@ -406,7 +414,12 @@ class MLflowTracker:
 class mlflow_run:
     """Context manager for MLflow runs."""
 
-    def __init__(self, tracker: MLflowTracker, run_name: Optional[str] = None, tags: Optional[Dict] = None):
+    def __init__(
+        self,
+        tracker: MLflowTracker,
+        run_name: Optional[str] = None,
+        tags: Optional[Dict] = None,
+    ):
         self.tracker = tracker
         self.run_name = run_name
         self.tags = tags
@@ -420,7 +433,7 @@ class mlflow_run:
 
 
 # Example usage
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Initialize tracker
@@ -434,7 +447,9 @@ if __name__ == '__main__':
 
     # Generate sample data
     X, y = make_regression(n_samples=1000, n_features=10, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
     # Train model
     model = RandomForestRegressor(n_estimators=100, random_state=42)
@@ -447,16 +462,9 @@ if __name__ == '__main__':
 
     # Log with context manager
     with mlflow_run(tracker, run_name="rf_demo"):
-        tracker.log_params({
-            'n_estimators': 100,
-            'random_state': 42,
-            'max_depth': None
-        })
+        tracker.log_params({"n_estimators": 100, "random_state": 42, "max_depth": None})
 
-        tracker.log_metrics({
-            'rmse': rmse,
-            'r2': r2
-        })
+        tracker.log_metrics({"rmse": rmse, "r2": r2})
 
         tracker.log_model(model, registered_model_name="energy_demo_model")
 
