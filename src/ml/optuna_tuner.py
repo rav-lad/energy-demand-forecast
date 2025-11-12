@@ -41,7 +41,7 @@ class OptunaHyperparameterTuner:
         direction: str = "minimize",
         n_trials: int = 100,
         pruner: Optional[optuna.pruners.BasePruner] = None,
-        sampler: Optional[optuna.samplers.BaseSampler] = None
+        sampler: Optional[optuna.samplers.BaseSampler] = None,
     ):
         """
         Initialize Optuna tuner.
@@ -72,7 +72,7 @@ class OptunaHyperparameterTuner:
             direction=direction,
             pruner=self.pruner,
             sampler=self.sampler,
-            load_if_exists=True
+            load_if_exists=True,
         )
 
         logger.info(f"Initialized Optuna tuner: {study_name}")
@@ -85,7 +85,7 @@ class OptunaHyperparameterTuner:
         y_train: np.ndarray,
         X_val: np.ndarray,
         y_val: np.ndarray,
-        multioutput: bool = True
+        multioutput: bool = True,
     ) -> Dict[str, Any]:
         """
         Optimize XGBoost hyperparameters.
@@ -106,16 +106,18 @@ class OptunaHyperparameterTuner:
         def objective(trial):
             # Suggest hyperparameters
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 500),
-                'max_depth': trial.suggest_int('max_depth', 3, 10),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-                'gamma': trial.suggest_float('gamma', 0.0, 1.0),
-                'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 1.0),
-                'reg_lambda': trial.suggest_float('reg_lambda', 0.0, 1.0),
-                'random_state': 42
+                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
+                "max_depth": trial.suggest_int("max_depth", 3, 10),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+                "gamma": trial.suggest_float("gamma", 0.0, 1.0),
+                "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0.0, 1.0),
+                "random_state": 42,
             }
 
             # Create model
@@ -158,7 +160,7 @@ class OptunaHyperparameterTuner:
         y_train: np.ndarray,
         X_val: np.ndarray,
         y_val: np.ndarray,
-        quantile: Optional[float] = None
+        quantile: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Optimize LightGBM hyperparameters.
@@ -178,23 +180,25 @@ class OptunaHyperparameterTuner:
         def objective(trial):
             # Suggest hyperparameters
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 500),
-                'max_depth': trial.suggest_int('max_depth', 3, 12),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-                'num_leaves': trial.suggest_int('num_leaves', 20, 200),
-                'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-                'min_child_samples': trial.suggest_int('min_child_samples', 5, 50),
-                'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 1.0),
-                'reg_lambda': trial.suggest_float('reg_lambda', 0.0, 1.0),
-                'random_state': 42,
-                'verbose': -1
+                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
+                "max_depth": trial.suggest_int("max_depth", 3, 12),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
+                "num_leaves": trial.suggest_int("num_leaves", 20, 200),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
+                "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0.0, 1.0),
+                "random_state": 42,
+                "verbose": -1,
             }
 
             # Add quantile objective if specified
             if quantile is not None:
-                params['objective'] = 'quantile'
-                params['alpha'] = quantile
+                params["objective"] = "quantile"
+                params["alpha"] = quantile
 
             # Create model
             model = lgb.LGBMRegressor(**params)
@@ -223,7 +227,7 @@ class OptunaHyperparameterTuner:
         X_train: np.ndarray,
         y_train: np.ndarray,
         X_val: np.ndarray,
-        y_val: np.ndarray
+        y_val: np.ndarray,
     ) -> Dict[str, Any]:
         """
         Optimize Ridge regression hyperparameters.
@@ -243,9 +247,11 @@ class OptunaHyperparameterTuner:
         def objective(trial):
             # Suggest hyperparameters
             params = {
-                'alpha': trial.suggest_float('alpha', 0.001, 100.0, log=True),
-                'solver': trial.suggest_categorical('solver', ['auto', 'svd', 'cholesky', 'lsqr']),
-                'random_state': 42
+                "alpha": trial.suggest_float("alpha", 0.001, 100.0, log=True),
+                "solver": trial.suggest_categorical(
+                    "solver", ["auto", "svd", "cholesky", "lsqr"]
+                ),
+                "random_state": 42,
             }
 
             # Create model
@@ -329,14 +335,14 @@ class OptunaHyperparameterTuner:
         import json
 
         config = {
-            'study_name': self.study_name,
-            'best_value': self.study.best_value,
-            'best_params': self.study.best_params,
-            'n_trials': len(self.study.trials),
-            'optimization_date': str(pd.Timestamp.now())
+            "study_name": self.study_name,
+            "best_value": self.study.best_value,
+            "best_params": self.study.best_params,
+            "n_trials": len(self.study.trials),
+            "optimization_date": str(pd.Timestamp.now()),
         }
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(config, f, indent=2)
 
         logger.info(f"Exported best config to {output_path}")
@@ -351,7 +357,7 @@ class MultiObjectiveOptimizer:
         self.study = optuna.create_study(
             study_name=study_name,
             directions=["minimize", "minimize"],  # RMSE, inference time
-            load_if_exists=True
+            load_if_exists=True,
         )
 
         logger.info(f"Initialized multi-objective optimizer: {study_name}")
@@ -362,7 +368,7 @@ class MultiObjectiveOptimizer:
         y_train: np.ndarray,
         X_val: np.ndarray,
         y_val: np.ndarray,
-        n_trials: int = 100
+        n_trials: int = 100,
     ):
         """
         Optimize for both accuracy and inference speed.
@@ -380,9 +386,11 @@ class MultiObjectiveOptimizer:
 
         def objective(trial):
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 50, 300),
-                'max_depth': trial.suggest_int('max_depth', 3, 10),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                "max_depth": trial.suggest_int("max_depth", 3, 10),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
             }
 
             model = MultiOutputRegressor(XGBRegressor(**params, random_state=42))
@@ -415,7 +423,7 @@ class MultiObjectiveOptimizer:
 
 
 # Example usage
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Generate sample data
@@ -429,10 +437,7 @@ if __name__ == '__main__':
     y_train, y_val = y[:split], y[split:]
 
     # Optimize XGBoost
-    tuner = OptunaHyperparameterTuner(
-        study_name="xgboost_test",
-        n_trials=20
-    )
+    tuner = OptunaHyperparameterTuner(study_name="xgboost_test", n_trials=20)
 
     best_params = tuner.optimize_xgboost(X_train, y_train, X_val, y_val)
 

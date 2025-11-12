@@ -28,18 +28,19 @@ sys.path.insert(0, str(project_root))
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def sample_weather_data():
     """Generate sample weather data for testing."""
-    dates = pd.date_range('2023-01-01', '2023-12-31', freq='D')
+    dates = pd.date_range("2023-01-01", "2023-12-31", freq="D")
     data = {
-        'date': dates,
-        'insee_region': np.random.choice([11, 52, 75], len(dates)),
-        'temperature_2m_max': np.random.normal(15, 10, len(dates)),
-        'temperature_2m_min': np.random.normal(5, 8, len(dates)),
-        'precipitation_sum': np.random.exponential(2, len(dates)),
-        'wind_speed_10m_max': np.random.exponential(15, len(dates)),
-        'shortwave_radiation_sum': np.random.normal(5000, 2000, len(dates)),
+        "date": dates,
+        "insee_region": np.random.choice([11, 52, 75], len(dates)),
+        "temperature_2m_max": np.random.normal(15, 10, len(dates)),
+        "temperature_2m_min": np.random.normal(5, 8, len(dates)),
+        "precipitation_sum": np.random.exponential(2, len(dates)),
+        "wind_speed_10m_max": np.random.exponential(15, len(dates)),
+        "shortwave_radiation_sum": np.random.normal(5000, 2000, len(dates)),
     }
     return pd.DataFrame(data)
 
@@ -47,12 +48,12 @@ def sample_weather_data():
 @pytest.fixture
 def sample_energy_data():
     """Generate sample energy consumption data."""
-    dates = pd.date_range('2023-01-01', '2023-12-31', freq='D')
+    dates = pd.date_range("2023-01-01", "2023-12-31", freq="D")
     data = {
-        'date': dates,
-        'insee_region': np.random.choice([11, 52, 75], len(dates)),
-        'conso_elec_mw': np.random.normal(5000, 1000, len(dates)),
-        'conso_gaz_mw': np.random.normal(3000, 800, len(dates)),
+        "date": dates,
+        "insee_region": np.random.choice([11, 52, 75], len(dates)),
+        "conso_elec_mw": np.random.normal(5000, 1000, len(dates)),
+        "conso_gaz_mw": np.random.normal(3000, 800, len(dates)),
     }
     return pd.DataFrame(data)
 
@@ -60,11 +61,11 @@ def sample_energy_data():
 @pytest.fixture
 def sample_market_prices():
     """Generate sample market prices."""
-    dates = pd.date_range('2023-01-01', '2023-12-31', freq='D')
+    dates = pd.date_range("2023-01-01", "2023-12-31", freq="D")
     data = {
-        'date': dates,
-        'price_FR': np.random.normal(50, 15, len(dates)),
-        'price_DE': np.random.normal(52, 16, len(dates)),
+        "date": dates,
+        "price_FR": np.random.normal(50, 15, len(dates)),
+        "price_DE": np.random.normal(52, 16, len(dates)),
     }
     return pd.DataFrame(data)
 
@@ -72,6 +73,7 @@ def sample_market_prices():
 # =============================================================================
 # UNIT TESTS - DATA PROCESSING
 # =============================================================================
+
 
 class TestDataProcessing:
     """Tests for data processing functions."""
@@ -82,41 +84,44 @@ class TestDataProcessing:
         merged = pd.merge(
             sample_weather_data,
             sample_energy_data,
-            on=['date', 'insee_region'],
-            how='inner'
+            on=["date", "insee_region"],
+            how="inner",
         )
 
         assert len(merged) > 0, "Merged data should not be empty"
-        assert 'temperature_2m_max' in merged.columns
-        assert 'conso_elec_mw' in merged.columns
+        assert "temperature_2m_max" in merged.columns
+        assert "conso_elec_mw" in merged.columns
 
     def test_feature_engineering(self, sample_weather_data):
         """Test feature engineering creates expected columns."""
         # Add derived features
         df = sample_weather_data.copy()
-        df['temperature_2m_mean'] = (df['temperature_2m_max'] + df['temperature_2m_min']) / 2
-        df['temp_range'] = df['temperature_2m_max'] - df['temperature_2m_min']
+        df["temperature_2m_mean"] = (
+            df["temperature_2m_max"] + df["temperature_2m_min"]
+        ) / 2
+        df["temp_range"] = df["temperature_2m_max"] - df["temperature_2m_min"]
 
-        assert 'temperature_2m_mean' in df.columns
-        assert 'temp_range' in df.columns
-        assert df['temp_range'].min() >= 0, "Temperature range should be non-negative"
+        assert "temperature_2m_mean" in df.columns
+        assert "temp_range" in df.columns
+        assert df["temp_range"].min() >= 0, "Temperature range should be non-negative"
 
     def test_missing_data_handling(self, sample_weather_data):
         """Test handling of missing data."""
         df = sample_weather_data.copy()
 
         # Introduce missing values
-        df.loc[0:5, 'temperature_2m_max'] = np.nan
+        df.loc[0:5, "temperature_2m_max"] = np.nan
 
         # Forward fill
-        df_filled = df.fillna(method='ffill')
+        df_filled = df.fillna(method="ffill")
 
-        assert df_filled['temperature_2m_max'].isna().sum() == 0
+        assert df_filled["temperature_2m_max"].isna().sum() == 0
 
 
 # =============================================================================
 # UNIT TESTS - MODELS
 # =============================================================================
+
 
 class TestModels:
     """Tests for ML models."""
@@ -152,17 +157,20 @@ class TestModels:
         predictions = {}
 
         for q in quantiles:
-            model = lgb.LGBMRegressor(objective='quantile', alpha=q, n_estimators=10)
+            model = lgb.LGBMRegressor(objective="quantile", alpha=q, n_estimators=10)
             model.fit(X, y)
             predictions[q] = model.predict(X)
 
         # Q10 should be < Q50 < Q90 (on average)
-        assert predictions[0.1].mean() < predictions[0.5].mean() < predictions[0.9].mean()
+        assert (
+            predictions[0.1].mean() < predictions[0.5].mean() < predictions[0.9].mean()
+        )
 
 
 # =============================================================================
 # UNIT TESTS - TRADING
 # =============================================================================
+
 
 class TestTradingSystem:
     """Tests for trading system components."""
@@ -172,9 +180,7 @@ class TestTradingSystem:
         from trading_system.backtesting.backtest_engine import BacktestEngine
 
         engine = BacktestEngine(
-            initial_capital=100000,
-            transaction_cost=0.001,
-            max_position_size=1000
+            initial_capital=100000, transaction_cost=0.001, max_position_size=1000
         )
 
         assert engine.capital == 100000
@@ -183,19 +189,21 @@ class TestTradingSystem:
 
     def test_signal_generation(self, sample_energy_data, sample_market_prices):
         """Test trading signal generation."""
-        from trading_system.strategies.demand_price_arbitrage import DemandPriceArbitrageStrategy
+        from trading_system.strategies.demand_price_arbitrage import (
+            DemandPriceArbitrageStrategy,
+        )
 
         strategy = DemandPriceArbitrageStrategy()
 
         # Calibrate
-        demand = sample_energy_data['conso_elec_mw']
+        demand = sample_energy_data["conso_elec_mw"]
         strategy.calibrate(demand)
 
         # Generate signals
         signals = strategy.generate_signals(demand)
 
-        assert 'signal' in signals.columns
-        assert signals['signal'].isin([-1, 0, 1]).all()
+        assert "signal" in signals.columns
+        assert signals["signal"].isin([-1, 0, 1]).all()
 
     def test_position_size_calculation(self):
         """Test position sizing logic."""
@@ -215,22 +223,32 @@ class TestTradingSystem:
 # INTEGRATION TESTS
 # =============================================================================
 
+
 class TestPipelines:
     """Integration tests for complete pipelines."""
 
-    def test_training_pipeline_xgboost(self, tmp_path, sample_weather_data, sample_energy_data):
+    def test_training_pipeline_xgboost(
+        self, tmp_path, sample_weather_data, sample_energy_data
+    ):
         """Test complete XGBoost training pipeline."""
         from sklearn.multioutput import MultiOutputRegressor
         from xgboost import XGBRegressor
         import pickle
 
         # Merge data
-        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+        data = pd.merge(
+            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
+        )
 
         # Create features and targets
-        features = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum',
-                   'wind_speed_10m_max', 'shortwave_radiation_sum']
-        targets = ['conso_elec_mw', 'conso_gaz_mw']
+        features = [
+            "temperature_2m_max",
+            "temperature_2m_min",
+            "precipitation_sum",
+            "wind_speed_10m_max",
+            "shortwave_radiation_sum",
+        ]
+        targets = ["conso_elec_mw", "conso_gaz_mw"]
 
         X = data[features].values
         y = data[targets].values
@@ -246,11 +264,11 @@ class TestPipelines:
 
         # Save
         model_path = tmp_path / "xgboost_test.pkl"
-        with open(model_path, 'wb') as f:
+        with open(model_path, "wb") as f:
             pickle.dump(model, f)
 
         # Load and predict
-        with open(model_path, 'rb') as f:
+        with open(model_path, "rb") as f:
             loaded_model = pickle.load(f)
 
         y_pred = loaded_model.predict(X_test)
@@ -265,10 +283,12 @@ class TestPipelines:
         from sklearn.metrics import mean_squared_error
 
         # Merge data
-        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+        data = pd.merge(
+            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
+        )
 
-        features = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum']
-        targets = ['conso_elec_mw', 'conso_gaz_mw']
+        features = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"]
+        targets = ["conso_elec_mw", "conso_gaz_mw"]
 
         X = data[features].values
         y = data[targets].values
@@ -292,26 +312,38 @@ class TestPipelines:
 # END-TO-END TESTS
 # =============================================================================
 
+
 class TestWorkflows:
     """E2E tests for complete workflows."""
 
-    def test_full_workflow(self, sample_weather_data, sample_energy_data, sample_market_prices):
+    def test_full_workflow(
+        self, sample_weather_data, sample_energy_data, sample_market_prices
+    ):
         """Test complete workflow: data → train → predict → evaluate."""
         from sklearn.multioutput import MultiOutputRegressor
         from xgboost import XGBRegressor
         from sklearn.metrics import mean_squared_error, r2_score
 
         # 1. Merge data
-        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+        data = pd.merge(
+            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
+        )
 
         # 2. Feature engineering
-        data['temp_mean'] = (data['temperature_2m_max'] + data['temperature_2m_min']) / 2
-        data['temp_range'] = data['temperature_2m_max'] - data['temperature_2m_min']
+        data["temp_mean"] = (
+            data["temperature_2m_max"] + data["temperature_2m_min"]
+        ) / 2
+        data["temp_range"] = data["temperature_2m_max"] - data["temperature_2m_min"]
 
         # 3. Prepare features
-        features = ['temp_mean', 'temp_range', 'precipitation_sum',
-                   'wind_speed_10m_max', 'shortwave_radiation_sum']
-        targets = ['conso_elec_mw', 'conso_gaz_mw']
+        features = [
+            "temp_mean",
+            "temp_range",
+            "precipitation_sum",
+            "wind_speed_10m_max",
+            "shortwave_radiation_sum",
+        ]
+        targets = ["conso_elec_mw", "conso_gaz_mw"]
 
         X = data[features].values
         y = data[targets].values
@@ -342,6 +374,7 @@ class TestWorkflows:
 # PERFORMANCE TESTS
 # =============================================================================
 
+
 class TestPerformance:
     """Performance and benchmark tests."""
 
@@ -364,42 +397,47 @@ class TestPerformance:
 # DATA VALIDATION TESTS
 # =============================================================================
 
+
 class TestDataValidation:
     """Tests for data quality and validation."""
 
     def test_no_future_leakage(self, sample_weather_data, sample_energy_data):
         """Ensure no future data leakage in training."""
         # Check that features don't include future information
-        merged = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+        merged = pd.merge(
+            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
+        )
 
         # Sort by date
-        merged = merged.sort_values('date')
+        merged = merged.sort_values("date")
 
         # Create lag features
-        merged['conso_elec_lag1'] = merged['conso_elec_mw'].shift(1)
-        merged['conso_elec_lag7'] = merged['conso_elec_mw'].shift(7)
+        merged["conso_elec_lag1"] = merged["conso_elec_mw"].shift(1)
+        merged["conso_elec_lag7"] = merged["conso_elec_mw"].shift(7)
 
         # Check that lag features are properly shifted
         # First row should have NaN for lag1
-        assert pd.isna(merged.iloc[0]['conso_elec_lag1'])
+        assert pd.isna(merged.iloc[0]["conso_elec_lag1"])
 
         # Second row lag1 should equal first row original
-        assert merged.iloc[1]['conso_elec_lag1'] == merged.iloc[0]['conso_elec_mw']
+        assert merged.iloc[1]["conso_elec_lag1"] == merged.iloc[0]["conso_elec_mw"]
 
         # Check no future leakage: lag value should always be from the past
         for i in range(7, len(merged)):
-            assert merged.iloc[i]['conso_elec_lag7'] == merged.iloc[i-7]['conso_elec_mw']
+            assert (
+                merged.iloc[i]["conso_elec_lag7"] == merged.iloc[i - 7]["conso_elec_mw"]
+            )
 
     def test_data_quality_checks(self, sample_weather_data):
         """Test data quality validations."""
         df = sample_weather_data
 
         # Check for impossible values
-        assert (df['temperature_2m_max'] > -100).all(), "Temperature too low"
-        assert (df['temperature_2m_max'] < 100).all(), "Temperature too high"
-        assert (df['precipitation_sum'] >= 0).all(), "Precipitation cannot be negative"
-        assert (df['wind_speed_10m_max'] >= 0).all(), "Wind speed cannot be negative"
+        assert (df["temperature_2m_max"] > -100).all(), "Temperature too low"
+        assert (df["temperature_2m_max"] < 100).all(), "Temperature too high"
+        assert (df["precipitation_sum"] >= 0).all(), "Precipitation cannot be negative"
+        assert (df["wind_speed_10m_max"] >= 0).all(), "Wind speed cannot be negative"
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

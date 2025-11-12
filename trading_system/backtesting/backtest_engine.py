@@ -18,11 +18,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Trade:
     """Represents a single trade."""
+
     timestamp: pd.Timestamp
     action: str  # 'BUY' or 'SELL'
     quantity: float  # MWh
     price: float  # EUR/MWh
-    region: str = 'FR'
+    region: str = "FR"
     trade_id: Optional[int] = None
 
     @property
@@ -34,9 +35,10 @@ class Trade:
 @dataclass
 class Position:
     """Represents an open position."""
+
     entry_trade: Trade
     exit_trade: Optional[Trade] = None
-    status: str = 'OPEN'  # 'OPEN' or 'CLOSED'
+    status: str = "OPEN"  # 'OPEN' or 'CLOSED'
 
     @property
     def pnl(self) -> float:
@@ -44,12 +46,16 @@ class Position:
         if not self.exit_trade:
             return 0.0
 
-        if self.entry_trade.action == 'BUY':
+        if self.entry_trade.action == "BUY":
             # Long position: profit = (exit_price - entry_price) * quantity
-            return (self.exit_trade.price - self.entry_trade.price) * self.entry_trade.quantity
+            return (
+                self.exit_trade.price - self.entry_trade.price
+            ) * self.entry_trade.quantity
         else:
             # Short position: profit = (entry_price - exit_price) * quantity
-            return (self.entry_trade.price - self.exit_trade.price) * self.entry_trade.quantity
+            return (
+                self.entry_trade.price - self.exit_trade.price
+            ) * self.entry_trade.quantity
 
     @property
     def return_pct(self) -> float:
@@ -84,7 +90,7 @@ class BacktestEngine:
         transaction_cost: float = 0.001,
         slippage: float = 0.0005,
         max_position_size: float = 10000,
-        max_positions: int = 5
+        max_positions: int = 5,
     ):
         """
         Initialize backtesting engine.
@@ -114,17 +120,19 @@ class BacktestEngine:
         self.winning_trades = 0
         self.losing_trades = 0
 
-        logger.info(f"Backtest engine initialized with capital: {initial_capital:,.2f} EUR")
+        logger.info(
+            f"Backtest engine initialized with capital: {initial_capital:,.2f} EUR"
+        )
 
     @property
     def open_positions(self) -> List[Position]:
         """Get list of open positions."""
-        return [p for p in self.positions if p.status == 'OPEN']
+        return [p for p in self.positions if p.status == "OPEN"]
 
     @property
     def closed_positions(self) -> List[Position]:
         """Get list of closed positions."""
-        return [p for p in self.positions if p.status == 'CLOSED']
+        return [p for p in self.positions if p.status == "CLOSED"]
 
     @property
     def current_exposure(self) -> float:
@@ -149,13 +157,19 @@ class BacktestEngine:
 
         # Check max position size
         if quantity > self.max_position_size:
-            logger.debug(f"Position size {quantity} exceeds maximum {self.max_position_size}")
+            logger.debug(
+                f"Position size {quantity} exceeds maximum {self.max_position_size}"
+            )
             return False
 
         # Check available capital
-        required_capital = quantity * price * (1 + self.transaction_cost + self.slippage)
+        required_capital = (
+            quantity * price * (1 + self.transaction_cost + self.slippage)
+        )
         if required_capital > self.capital:
-            logger.debug(f"Insufficient capital: need {required_capital:,.2f}, have {self.capital:,.2f}")
+            logger.debug(
+                f"Insufficient capital: need {required_capital:,.2f}, have {self.capital:,.2f}"
+            )
             return False
 
         return True
@@ -166,7 +180,7 @@ class BacktestEngine:
         action: str,
         quantity: float,
         price: float,
-        region: str = 'FR'
+        region: str = "FR",
     ) -> Optional[Trade]:
         """
         Execute a trade.
@@ -182,10 +196,14 @@ class BacktestEngine:
             Trade object if successful, None otherwise
         """
         # Apply slippage
-        effective_price = price * (1 + self.slippage) if action == 'BUY' else price * (1 - self.slippage)
+        effective_price = (
+            price * (1 + self.slippage)
+            if action == "BUY"
+            else price * (1 - self.slippage)
+        )
 
         # Check if trade is feasible
-        if action == 'BUY' and not self.can_open_position(quantity, effective_price):
+        if action == "BUY" and not self.can_open_position(quantity, effective_price):
             return None
 
         # Create trade
@@ -195,7 +213,7 @@ class BacktestEngine:
             quantity=quantity,
             price=effective_price,
             region=region,
-            trade_id=len(self.trades)
+            trade_id=len(self.trades),
         )
 
         # Calculate costs
@@ -203,21 +221,25 @@ class BacktestEngine:
         costs = transaction_value * self.transaction_cost
 
         # Update capital
-        if action == 'BUY':
-            self.capital -= (transaction_value + costs)
+        if action == "BUY":
+            self.capital -= transaction_value + costs
             # Open new position
             position = Position(entry_trade=trade)
             self.positions.append(position)
-            logger.debug(f"Opened BUY position: {quantity} MWh @ {effective_price:.2f} EUR/MWh")
+            logger.debug(
+                f"Opened BUY position: {quantity} MWh @ {effective_price:.2f} EUR/MWh"
+            )
 
         else:  # SELL
-            self.capital += (transaction_value - costs)
+            self.capital += transaction_value - costs
             # Close matching open position (FIFO)
-            open_buy_positions = [p for p in self.open_positions if p.entry_trade.action == 'BUY']
+            open_buy_positions = [
+                p for p in self.open_positions if p.entry_trade.action == "BUY"
+            ]
             if open_buy_positions:
                 position = open_buy_positions[0]
                 position.exit_trade = trade
-                position.status = 'CLOSED'
+                position.status = "CLOSED"
 
                 # Update metrics
                 if position.pnl > 0:
@@ -225,7 +247,9 @@ class BacktestEngine:
                 else:
                     self.losing_trades += 1
 
-                logger.debug(f"Closed position: PnL = {position.pnl:.2f} EUR ({position.return_pct:.2f}%)")
+                logger.debug(
+                    f"Closed position: PnL = {position.pnl:.2f} EUR ({position.return_pct:.2f}%)"
+                )
 
         self.trades.append(trade)
         self.total_trades += 1
@@ -236,8 +260,8 @@ class BacktestEngine:
         self,
         data: pd.DataFrame,
         signals: pd.Series,
-        price_column: str = 'price_FR',
-        quantity_column: Optional[str] = None
+        price_column: str = "price_FR",
+        quantity_column: Optional[str] = None,
     ):
         """
         Process trading signals on historical data.
@@ -265,27 +289,34 @@ class BacktestEngine:
             # Execute trade based on signal
             if signal == 1:  # BUY signal
                 if len(self.open_positions) == 0:  # Only open if no open positions
-                    self.execute_trade(timestamp, 'BUY', quantity, price)
+                    self.execute_trade(timestamp, "BUY", quantity, price)
 
             elif signal == -1:  # SELL signal
                 if len(self.open_positions) > 0:  # Only close if have open positions
-                    self.execute_trade(timestamp, 'SELL', quantity, price)
+                    self.execute_trade(timestamp, "SELL", quantity, price)
 
             # Calculate current equity
             current_equity = self.capital
             for pos in self.open_positions:
                 # Mark-to-market for open positions
-                unrealized_pnl = (price - pos.entry_trade.price) * pos.entry_trade.quantity
+                unrealized_pnl = (
+                    price - pos.entry_trade.price
+                ) * pos.entry_trade.quantity
                 current_equity += pos.entry_trade.value + unrealized_pnl
 
             equity.append(current_equity)
 
         # Store equity curve
         self.equity_curve = pd.Series(equity, index=data.index)
-        self.total_return = ((self.equity_curve.iloc[-1] - self.initial_capital) /
-                            self.initial_capital * 100)
+        self.total_return = (
+            (self.equity_curve.iloc[-1] - self.initial_capital)
+            / self.initial_capital
+            * 100
+        )
 
-        logger.info(f"Backtest completed: {self.total_trades} trades, {self.total_return:.2f}% return")
+        logger.info(
+            f"Backtest completed: {self.total_trades} trades, {self.total_return:.2f}% return"
+        )
 
     def calculate_metrics(self) -> Dict[str, float]:
         """
@@ -306,8 +337,11 @@ class BacktestEngine:
         final_capital = self.equity_curve.iloc[-1]
 
         # Win rate
-        win_rate = (self.winning_trades / len(self.closed_positions) * 100
-                   if self.closed_positions else 0)
+        win_rate = (
+            self.winning_trades / len(self.closed_positions) * 100
+            if self.closed_positions
+            else 0
+        )
 
         # Profit factor
         gross_profit = sum(p.pnl for p in self.closed_positions if p.pnl > 0)
@@ -315,13 +349,17 @@ class BacktestEngine:
         profit_factor = gross_profit / gross_loss if gross_loss > 0 else np.inf
 
         # Sharpe ratio (assuming 252 trading days per year)
-        sharpe_ratio = (returns.mean() / returns.std() * np.sqrt(252)
-                       if returns.std() > 0 else 0)
+        sharpe_ratio = (
+            returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+        )
 
         # Sortino ratio (downside deviation)
         downside_returns = returns[returns < 0]
-        sortino_ratio = (returns.mean() / downside_returns.std() * np.sqrt(252)
-                        if len(downside_returns) > 0 and downside_returns.std() > 0 else 0)
+        sortino_ratio = (
+            returns.mean() / downside_returns.std() * np.sqrt(252)
+            if len(downside_returns) > 0 and downside_returns.std() > 0
+            else 0
+        )
 
         # Maximum drawdown
         cumulative = (1 + returns).cumprod()
@@ -331,34 +369,44 @@ class BacktestEngine:
 
         # Average trade metrics
         avg_trade_pnl = np.mean([p.pnl for p in self.closed_positions])
-        avg_win = np.mean([p.pnl for p in self.closed_positions if p.pnl > 0]) if self.winning_trades > 0 else 0
-        avg_loss = np.mean([p.pnl for p in self.closed_positions if p.pnl < 0]) if self.losing_trades > 0 else 0
+        avg_win = (
+            np.mean([p.pnl for p in self.closed_positions if p.pnl > 0])
+            if self.winning_trades > 0
+            else 0
+        )
+        avg_loss = (
+            np.mean([p.pnl for p in self.closed_positions if p.pnl < 0])
+            if self.losing_trades > 0
+            else 0
+        )
 
         # Average trade duration
-        avg_duration = np.mean([p.duration.total_seconds() / 3600 for p in self.closed_positions])  # hours
+        avg_duration = np.mean(
+            [p.duration.total_seconds() / 3600 for p in self.closed_positions]
+        )  # hours
 
         # Calmar ratio (return / max drawdown)
         calmar_ratio = abs(total_return / max_drawdown) if max_drawdown != 0 else 0
 
         metrics = {
-            'initial_capital': self.initial_capital,
-            'final_capital': final_capital,
-            'total_return': total_return,
-            'total_trades': self.total_trades,
-            'winning_trades': self.winning_trades,
-            'losing_trades': self.losing_trades,
-            'win_rate': win_rate,
-            'profit_factor': profit_factor,
-            'sharpe_ratio': sharpe_ratio,
-            'sortino_ratio': sortino_ratio,
-            'max_drawdown': max_drawdown,
-            'calmar_ratio': calmar_ratio,
-            'avg_trade_pnl': avg_trade_pnl,
-            'avg_win': avg_win,
-            'avg_loss': avg_loss,
-            'avg_trade_duration_hours': avg_duration,
-            'gross_profit': gross_profit,
-            'gross_loss': gross_loss,
+            "initial_capital": self.initial_capital,
+            "final_capital": final_capital,
+            "total_return": total_return,
+            "total_trades": self.total_trades,
+            "winning_trades": self.winning_trades,
+            "losing_trades": self.losing_trades,
+            "win_rate": win_rate,
+            "profit_factor": profit_factor,
+            "sharpe_ratio": sharpe_ratio,
+            "sortino_ratio": sortino_ratio,
+            "max_drawdown": max_drawdown,
+            "calmar_ratio": calmar_ratio,
+            "avg_trade_pnl": avg_trade_pnl,
+            "avg_win": avg_win,
+            "avg_loss": avg_loss,
+            "avg_trade_duration_hours": avg_duration,
+            "gross_profit": gross_profit,
+            "gross_loss": gross_loss,
         }
 
         return metrics
@@ -371,9 +419,9 @@ class BacktestEngine:
             print("No results to display")
             return
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("BACKTEST RESULTS")
-        print("="*60)
+        print("=" * 60)
 
         print("\nCapital:")
         print(f"  Initial Capital:     {metrics['initial_capital']:>15,.2f} EUR")
@@ -397,27 +445,27 @@ class BacktestEngine:
         print(f"  Avg Trade PnL:       {metrics['avg_trade_pnl']:>15,.2f} EUR")
         print(f"  Avg Win:             {metrics['avg_win']:>15,.2f} EUR")
         print(f"  Avg Loss:            {metrics['avg_loss']:>15,.2f} EUR")
-        print(f"  Avg Duration:        {metrics['avg_trade_duration_hours']:>15.1f} hours")
+        print(
+            f"  Avg Duration:        {metrics['avg_trade_duration_hours']:>15.1f} hours"
+        )
 
         print("\nGross Figures:")
         print(f"  Gross Profit:        {metrics['gross_profit']:>15,.2f} EUR")
         print(f"  Gross Loss:          {metrics['gross_loss']:>15,.2f} EUR")
 
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage
     print("Backtesting Engine - Example")
 
     # Create sample data
-    dates = pd.date_range('2023-01-01', '2023-12-31', freq='D')
+    dates = pd.date_range("2023-01-01", "2023-12-31", freq="D")
     np.random.seed(42)
     prices = 50 + np.random.randn(len(dates)).cumsum() * 2
 
-    data = pd.DataFrame({
-        'price_FR': prices
-    }, index=dates)
+    data = pd.DataFrame({"price_FR": prices}, index=dates)
 
     # Create simple signals (buy when price < 45, sell when price > 55)
     signals = pd.Series(0, index=dates)
@@ -426,7 +474,7 @@ if __name__ == '__main__':
 
     # Run backtest
     engine = BacktestEngine(initial_capital=100000)
-    engine.process_signals(data, signals, price_column='price_FR')
+    engine.process_signals(data, signals, price_column="price_FR")
 
     # Print results
     engine.print_results()

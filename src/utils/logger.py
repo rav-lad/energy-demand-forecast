@@ -28,6 +28,7 @@ import json
 # ANSI color codes for console output
 class LogColors:
     """ANSI color codes for terminal output."""
+
     RESET = "\033[0m"
     RED = "\033[91m"
     GREEN = "\033[92m"
@@ -54,9 +55,7 @@ class ColoredFormatter(logging.Formatter):
         # Add color to level name
         levelname = record.levelname
         if record.levelno in self.COLORS:
-            levelname_color = (
-                self.COLORS[record.levelno] + levelname + LogColors.RESET
-            )
+            levelname_color = self.COLORS[record.levelno] + levelname + LogColors.RESET
             record.levelname = levelname_color
 
         # Format the message
@@ -73,20 +72,20 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record):
         log_data = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'message': record.getMessage(),
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno,
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
         }
 
         if record.exc_info:
-            log_data['exception'] = self.formatException(record.exc_info)
+            log_data["exception"] = self.formatException(record.exc_info)
 
-        if hasattr(record, 'extra'):
-            log_data['extra'] = record.extra
+        if hasattr(record, "extra"):
+            log_data["extra"] = record.extra
 
         return json.dumps(log_data)
 
@@ -127,8 +126,8 @@ def setup_logger(
         console_handler.setLevel(level)
 
         console_formatter = ColoredFormatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
@@ -139,10 +138,7 @@ def setup_logger(
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         file_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
+            log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
         )
         file_handler.setLevel(level)
 
@@ -150,8 +146,8 @@ def setup_logger(
             file_formatter = JSONFormatter()
         else:
             file_formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
 
         file_handler.setFormatter(file_formatter)
@@ -164,9 +160,7 @@ def setup_logger(
 
 
 def get_logger(
-    name: str,
-    log_file: Optional[str] = None,
-    level: Optional[int] = None
+    name: str, log_file: Optional[str] = None, level: Optional[int] = None
 ) -> logging.Logger:
     """
     Get or create logger with default configuration.
@@ -182,6 +176,7 @@ def get_logger(
     # Try to load settings
     try:
         from src.config.settings import settings
+
         if level is None:
             level = getattr(logging, settings.log_level.upper(), logging.INFO)
         if log_file is None and settings.environment == "production":
@@ -241,9 +236,7 @@ if __name__ == "__main__":
 
     # Test file logging
     file_logger = setup_logger(
-        "test_file",
-        log_file="outputs/logs/test.log",
-        level=logging.DEBUG
+        "test_file", log_file="outputs/logs/test.log", level=logging.DEBUG
     )
 
     file_logger.info("This goes to both console and file")
@@ -254,7 +247,7 @@ if __name__ == "__main__":
         log_file="outputs/logs/test.json",
         level=logging.INFO,
         json_format=True,
-        console=False
+        console=False,
     )
 
     json_logger.info("This is JSON formatted")
