@@ -1,0 +1,220 @@
+version: '3.8'
+
+# =============================================================================
+# Energy Trading Research - Docker Compose Configuration
+# =============================================================================
+# Services:
+#   - app: Main application container
+#   - jupyter: Jupyter Lab for research
+#   - train: Model training service
+#   - api: API service (future)
+#
+# Usage:
+#   docker-compose up app          # Start main app
+#   docker-compose up jupyter      # Start Jupyter Lab
+#   docker-compose run train       # Run training
+#   docker-compose run benchmark   # Run benchmark
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Main Application Service
+  # ===========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-app
+    volumes:
+      # Mount code for development
+      - ./:/app
+      # Persist data
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      # Load from .env file
+      - ENTSOE_API_KEY=${ENTSOE_API_KEY:-}
+      - PYTHONPATH=/app
+      - DEBUG=${DEBUG:-False}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    env_file:
+      - .env
+    working_dir: /app
+    command: /bin/bash
+    stdin_open: true
+    tty: true
+    networks:
+      - energy-trading-network
+
+  # ===========================================================================
+  # Jupyter Lab Service (for research and visualization)
+  # ===========================================================================
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: energy-trading:dev
+    container_name: energy-trading-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./research:/app/research
+    environment:
+      - ENTSOE_API_KEY=${ENTSOE_API_KEY:-}
+      - PYTHONPATH=/app
+      - JUPYTER_ENABLE_LAB=yes
+    env_file:
+      - .env
+    working_dir: /app
+    command: >
+      jupyter lab
+      --ip=0.0.0.0
+      --port=8888
+      --no-browser
+      --allow-root
+      --NotebookApp.token=''
+      --NotebookApp.password=''
+    networks:
+      - energy-trading-network
+    labels:
+      - "traefik.enable=false"
+
+  # ===========================================================================
+  # Training Service (for model training)
+  # ===========================================================================
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-train
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    working_dir: /app
+    # Override with specific training command
+    command: /bin/bash
+    networks:
+      - energy-trading-network
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ===========================================================================
+  # Benchmark Service
+  # ===========================================================================
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-benchmark
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    working_dir: /app
+    command: python scripts/benchmark_models.py
+    networks:
+      - energy-trading-network
+    profiles:
+      - benchmark
+
+  # ===========================================================================
+  # Data Collection Service
+  # ===========================================================================
+  data-collector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-data-collector
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+    environment:
+      - ENTSOE_API_KEY=${ENTSOE_API_KEY}
+      - PYTHONPATH=/app
+    env_file:
+      - .env
+    working_dir: /app
+    command: /bin/bash
+    networks:
+      - energy-trading-network
+    profiles:
+      - data
+
+  # ===========================================================================
+  # Backtesting Service
+  # ===========================================================================
+  backtest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-backtest
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+      - ./trading_system:/app/trading_system
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    working_dir: /app
+    command: python run_backtest_example.py
+    networks:
+      - energy-trading-network
+    profiles:
+      - trading
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  energy-trading-network:
+    driver: bridge
+
+# =============================================================================
+# Volumes (optional: use named volumes for data persistence)
+# =============================================================================
+volumes:
+  data-volume:
+    driver: local
+  models-volume:
+    driver: local
+  outputs-volume:
+    driver: local
