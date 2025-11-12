@@ -122,9 +122,22 @@ data-all: data-prices data-fundamentals ## Collect all market data
 
 ##@ Testing
 
-test: ## Run tests (placeholder)
+test: ## Run all tests with pytest
 	@echo "🧪 Running tests..."
-	@echo "⚠️  No tests implemented yet"
+	pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+
+test-unit: ## Run unit tests only
+	@echo "🧪 Running unit tests..."
+	pytest tests/ -v -k "test_" --ignore=tests/integration --ignore=tests/e2e
+
+test-integration: ## Run integration tests
+	@echo "🧪 Running integration tests..."
+	pytest tests/integration/ -v
+
+test-coverage: ## Run tests with coverage report
+	@echo "🧪 Running tests with coverage..."
+	pytest tests/ --cov=. --cov-report=html --cov-report=term-missing
+	@echo "📊 Coverage report generated in htmlcov/index.html"
 
 test-pipeline: ## Test training pipeline with XGBoost
 	@echo "🧪 Testing pipeline..."
@@ -237,6 +250,76 @@ docs-models: ## Open models documentation
 	else \
 		echo "MODELS.md"; \
 	fi
+
+##@ API & Services
+
+api: ## Start FastAPI server
+	@echo "🚀 Starting FastAPI server on http://localhost:8000"
+	uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+
+api-docker: ## Start FastAPI in Docker
+	@echo "🚀 Starting FastAPI in Docker..."
+	$(DOCKER_COMPOSE) up -d api
+
+dashboard: ## Start Streamlit dashboard
+	@echo "📊 Starting Streamlit dashboard on http://localhost:8501"
+	streamlit run src/dashboard/app.py
+
+dashboard-docker: ## Start Streamlit in Docker
+	@echo "📊 Starting Streamlit in Docker..."
+	$(DOCKER_COMPOSE) up -d dashboard
+
+##@ MLflow
+
+mlflow-ui: ## Start MLflow tracking UI
+	@echo "📊 Starting MLflow UI on http://localhost:5000"
+	mlflow ui --backend-store-uri file:./outputs/mlruns
+
+mlflow-server: ## Start MLflow tracking server
+	@echo "🚀 Starting MLflow server..."
+	mlflow server --backend-store-uri file:./outputs/mlruns --default-artifact-root ./outputs/mlartifacts --host 0.0.0.0
+
+##@ Monitoring
+
+monitoring-up: ## Start Prometheus and Grafana
+	@echo "📊 Starting monitoring stack..."
+	docker-compose -f docker-compose.monitoring.yml up -d
+	@echo "✓ Prometheus: http://localhost:9090"
+	@echo "✓ Grafana: http://localhost:3000 (admin/admin)"
+
+monitoring-down: ## Stop monitoring stack
+	@echo "🛑 Stopping monitoring stack..."
+	docker-compose -f docker-compose.monitoring.yml down
+
+monitoring-logs: ## Show monitoring logs
+	docker-compose -f docker-compose.monitoring.yml logs -f
+
+##@ Airflow
+
+airflow-init: ## Initialize Airflow
+	@echo "🔧 Initializing Airflow..."
+	@mkdir -p airflow/logs airflow/plugins airflow/dags
+	@echo "AIRFLOW_UID=$$(id -u)" > airflow/.env
+	docker-compose -f docker-compose.airflow.yml up airflow-init
+
+airflow-up: ## Start Airflow
+	@echo "🚀 Starting Airflow..."
+	docker-compose -f docker-compose.airflow.yml up -d
+	@echo "✓ Airflow UI: http://localhost:8080 (airflow/airflow)"
+
+airflow-down: ## Stop Airflow
+	@echo "🛑 Stopping Airflow..."
+	docker-compose -f docker-compose.airflow.yml down
+
+##@ Optimization
+
+optimize-xgboost: ## Run Optuna hyperparameter optimization for XGBoost
+	@echo "🔬 Running hyperparameter optimization for XGBoost..."
+	python src/ml/optuna_tuner.py --model xgboost --n-trials 100
+
+optimize-lightgbm: ## Run Optuna optimization for LightGBM
+	@echo "🔬 Running hyperparameter optimization for LightGBM..."
+	python src/ml/optuna_tuner.py --model lightgbm --n-trials 100
 
 ##@ Info
 

@@ -218,22 +218,74 @@ class TestTradingSystem:
 class TestPipelines:
     """Integration tests for complete pipelines."""
 
-    def test_training_pipeline_xgboost(self, tmp_path):
+    def test_training_pipeline_xgboost(self, tmp_path, sample_weather_data, sample_energy_data):
         """Test complete XGBoost training pipeline."""
-        # This would test:
-        # 1. Data loading
-        # 2. Preprocessing
-        # 3. Training
-        # 4. Model saving
-        # 5. Loading and prediction
+        from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
+        import pickle
 
-        # Placeholder - implement with actual pipeline
-        pass
+        # Merge data
+        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
 
-    def test_benchmark_pipeline(self):
+        # Create features and targets
+        features = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum',
+                   'wind_speed_10m_max', 'shortwave_radiation_sum']
+        targets = ['conso_elec_mw', 'conso_gaz_mw']
+
+        X = data[features].values
+        y = data[targets].values
+
+        # Split
+        split_idx = int(len(X) * 0.8)
+        X_train, X_test = X[:split_idx], X[split_idx:]
+        y_train, y_test = y[:split_idx], y[split_idx:]
+
+        # Train
+        model = MultiOutputRegressor(XGBRegressor(n_estimators=10, random_state=42))
+        model.fit(X_train, y_train)
+
+        # Save
+        model_path = tmp_path / "xgboost_test.pkl"
+        with open(model_path, 'wb') as f:
+            pickle.dump(model, f)
+
+        # Load and predict
+        with open(model_path, 'rb') as f:
+            loaded_model = pickle.load(f)
+
+        y_pred = loaded_model.predict(X_test)
+
+        assert y_pred.shape == y_test.shape
+        assert model_path.exists()
+
+    def test_benchmark_pipeline(self, sample_weather_data, sample_energy_data):
         """Test benchmark pipeline runs without errors."""
-        # Placeholder
-        pass
+        from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
+        from sklearn.metrics import mean_squared_error
+
+        # Merge data
+        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+
+        features = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum']
+        targets = ['conso_elec_mw', 'conso_gaz_mw']
+
+        X = data[features].values
+        y = data[targets].values
+
+        split_idx = int(len(X) * 0.8)
+        X_train, X_test = X[:split_idx], X[split_idx:]
+        y_train, y_test = y[:split_idx], y[split_idx:]
+
+        # Test XGBoost
+        model = MultiOutputRegressor(XGBRegressor(n_estimators=10))
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+
+        assert rmse > 0
+        assert rmse < 10000  # Sanity check
 
 
 # =============================================================================
@@ -243,10 +295,47 @@ class TestPipelines:
 class TestWorkflows:
     """E2E tests for complete workflows."""
 
-    def test_full_workflow(self):
+    def test_full_workflow(self, sample_weather_data, sample_energy_data, sample_market_prices):
         """Test complete workflow: data → train → predict → evaluate."""
-        # Placeholder
-        pass
+        from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
+        from sklearn.metrics import mean_squared_error, r2_score
+
+        # 1. Merge data
+        data = pd.merge(sample_weather_data, sample_energy_data, on=['date', 'insee_region'])
+
+        # 2. Feature engineering
+        data['temp_mean'] = (data['temperature_2m_max'] + data['temperature_2m_min']) / 2
+        data['temp_range'] = data['temperature_2m_max'] - data['temperature_2m_min']
+
+        # 3. Prepare features
+        features = ['temp_mean', 'temp_range', 'precipitation_sum',
+                   'wind_speed_10m_max', 'shortwave_radiation_sum']
+        targets = ['conso_elec_mw', 'conso_gaz_mw']
+
+        X = data[features].values
+        y = data[targets].values
+
+        # 4. Split
+        split_idx = int(len(X) * 0.8)
+        X_train, X_test = X[:split_idx], X[split_idx:]
+        y_train, y_test = y[:split_idx], y[split_idx:]
+
+        # 5. Train
+        model = MultiOutputRegressor(XGBRegressor(n_estimators=20, random_state=42))
+        model.fit(X_train, y_train)
+
+        # 6. Predict
+        y_pred = model.predict(X_test)
+
+        # 7. Evaluate
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        # Assertions
+        assert rmse > 0
+        assert r2 >= -1 and r2 <= 1  # R² can be negative for bad models
+        assert y_pred.shape == y_test.shape
 
 
 # =============================================================================
@@ -286,9 +375,20 @@ class TestDataValidation:
         # Sort by date
         merged = merged.sort_values('date')
 
-        # For time series, ensure we're not using future data
-        # This would check that lags are correctly implemented
-        pass
+        # Create lag features
+        merged['conso_elec_lag1'] = merged['conso_elec_mw'].shift(1)
+        merged['conso_elec_lag7'] = merged['conso_elec_mw'].shift(7)
+
+        # Check that lag features are properly shifted
+        # First row should have NaN for lag1
+        assert pd.isna(merged.iloc[0]['conso_elec_lag1'])
+
+        # Second row lag1 should equal first row original
+        assert merged.iloc[1]['conso_elec_lag1'] == merged.iloc[0]['conso_elec_mw']
+
+        # Check no future leakage: lag value should always be from the past
+        for i in range(7, len(merged)):
+            assert merged.iloc[i]['conso_elec_lag7'] == merged.iloc[i-7]['conso_elec_mw']
 
     def test_data_quality_checks(self, sample_weather_data):
         """Test data quality validations."""

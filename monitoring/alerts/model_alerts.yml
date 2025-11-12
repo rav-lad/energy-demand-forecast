@@ -1,0 +1,91 @@
+# Alert Rules for Energy Trading Platform
+
+groups:
+  - name: model_performance
+    interval: 30s
+    rules:
+      # Alert if prediction error is too high
+      - alert: HighPredictionError
+        expr: prediction_error_rmse > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High prediction error detected"
+          description: "RMSE is {{ $value }} MW, which exceeds threshold of 1000 MW"
+
+      # Alert if no predictions in last hour
+      - alert: NoPredictions
+        expr: rate(predictions_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "No predictions generated"
+          description: "No predictions have been made in the last hour"
+
+      # Alert if API latency is too high
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, api_request_latency_seconds) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is {{ $value }}s"
+
+  - name: system_health
+    interval: 30s
+    rules:
+      # Alert if service is down
+      - alert: ServiceDown
+        expr: up{job="fastapi"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service has been down for more than 1 minute"
+
+      # Alert if CPU usage is too high
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}%"
+
+      # Alert if memory usage is too high
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}%"
+
+  - name: data_quality
+    interval: 1m
+    rules:
+      # Alert if data validation fails
+      - alert: DataValidationFailure
+        expr: rate(data_validation_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Data validation failing"
+          description: "{{ $value }} validation failures per second"
+
+      # Alert if missing data
+      - alert: MissingData
+        expr: data_completeness_ratio < 0.95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Missing data detected"
+          description: "Data completeness is {{ $value }}"
