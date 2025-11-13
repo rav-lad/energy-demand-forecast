@@ -54,6 +54,12 @@ pyyaml>=6.0.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
 plotly>=5.17.0
+altair>=5.0.0
+
+# Advanced Analytics & Research
+statsmodels>=0.14.0  # Time series analysis, econometrics, Granger causality
+shap>=0.44.0  # SHAP values for model interpretability
+scikit-optimize>=0.9.0  # Bayesian optimization
 
 # Market Data APIs
 entsoe-py>=0.6.0  # ENTSO-E Transparency Platform API

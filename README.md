@@ -1,590 +1,815 @@
-<h1 align="center">
-  <br>
-  <img src="https://github.com/rav-lad/energy-demand-forecast/blob/main/energy_forcaster_logo.png" width="400">
-  <br>
-</h1>
+# Energy Demand Forecasting System
 
-<h4 align="center">Energy Market Research & Trading System</h4>
+**Système de prévision de la demande énergétique avec apprentissage automatique**
 
-<h5 align="center">Demand Forecasting • Price Prediction • Trading Strategies • Market Analysis</h5>
-
-<p align="center">
-  <a href="https://pytorch-forecasting.readthedocs.io/">
-    <img src="https://img.shields.io/badge/Model-TFT-blue?logo=pytorch&logoColor=white">
-  </a>
-  <a href="https://xgboost.ai/">
-    <img src="https://img.shields.io/badge/Model-XGBoost-orange?logo=xgboost&logoColor=white">
-  </a>
-  <a href="https://lightgbm.readthedocs.io/">
-    <img src="https://img.shields.io/badge/Model-LightGBM-green?logo=lightgbm">
-  </a>
-  <a href="https://transparency.entsoe.eu/">
-    <img src="https://img.shields.io/badge/Data-ENTSO--E-red">
-  </a>
-  <a href="https://www.python.org">
-    <img src="https://img.shields.io/badge/Python-3.10-blue.svg?logo=python&logoColor=white">
-  </a>
-</p>
-
-<p align="center">
-  <a href="#overview">Overview</a> •
-  <a href="#features">Features</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#trading-strategies">Trading Strategies</a> •
-  <a href="#data-sources">Data Sources</a> •
-  <a href="#roadmap">Roadmap</a>
-</p>
+Prédiction de la consommation d'électricité et de gaz par région française basée sur des données météorologiques historiques et temps réel.
 
 ---
 
-## 🎯 Overview
+## 📋 Table des matières
 
-**Energy Trading Research** is a comprehensive system for energy market analysis and algorithmic trading research. It combines:
-
-1. **Demand Forecasting**: ML models (TFT, XGBoost, LightGBM) to predict regional energy consumption
-2. **Market Data Integration**: Real-time electricity prices and fundamentals from ENTSO-E
-3. **Trading Strategies**: Algorithmic strategies exploiting demand-price relationships
-4. **Backtesting Engine**: Robust framework for strategy validation
-5. **Market Research**: Tools for analyzing energy market dynamics
-
-### 🎓 Use Case
-
-This is a **research and backtesting platform** for developing and testing energy trading strategies. It is designed for:
-- Quantitative researchers exploring energy markets
-- Data scientists analyzing demand-price correlations
-- Academic research on renewable energy integration
-- Educational purposes in algorithmic trading
-
-**⚠️ Disclaimer**: This is a research tool. Real trading requires proper licensing and regulatory compliance.
+- [Architecture du système](#-architecture-du-système)
+- [Installation](#-installation)
+- [Commandes Make](#-commandes-make)
+- [Workflow complet](#-workflow-complet)
+- [Design du système ML](#-design-du-système-ml)
+- [Modèles disponibles](#-modèles-disponibles)
+- [Structure des données](#-structure-des-données)
+- [API et Dashboard](#-api-et-dashboard)
 
 ---
 
-## ✨ Features
+## 🏗️ Architecture du système
 
-### Demand Forecasting
-* **Multiple ML Models**: TFT, XGBoost, LightGBM, Linear Regression
-* **Multi-horizon**: Daily and hourly predictions
-* **Regional Granularity**: France (13 regions), expandable to Europe
-* **Weather Integration**: Temperature, wind, solar radiation, precipitation
-* **Probabilistic Forecasts**: Quantile predictions with uncertainty bounds
-
-### Market Data
-* **Real-time Prices**: Day-ahead electricity prices (ENTSO-E API)
-* **Fundamentals**: Generation by type (nuclear, solar, wind, gas, etc.)
-* **Load Data**: Actual vs forecasted demand
-* **Cross-border Flows**: Import/export between countries
-* **Renewable Production**: Wind and solar generation tracking
-
-### Trading System
-* **Strategy Framework**: Modular strategy development
-* **Backtesting Engine**: Transaction costs, slippage, position limits
-* **Performance Metrics**: Sharpe ratio, max drawdown, win rate, profit factor
-* **Signal Analysis**: Signal quality and predictive accuracy
-* **Risk Management**: Position sizing, stop-loss, drawdown limits
-
-### Market Research
-* **Price Driver Analysis**: What factors influence electricity prices?
-* **Demand-Price Correlation**: Relationship between load and market clearing
-* **Renewable Impact**: How wind/solar affect prices
-* **Regional Dynamics**: Cross-regional arbitrage opportunities
-* **Extreme Events**: Price spikes and market stress analysis
-
----
-
-## 🏗️ Architecture
+### Pipeline ML complet
 
 ```
-energy-demand-forecast/
-│
-├── config.yaml                    # Centralized configuration
-├── .env                          # API keys (create from .env.example)
-├── requirements.txt              # Python dependencies
-│
-├── data/                         # Data storage (gitignored)
-│   ├── raw_data/
-│   │   ├── energy/              # Historical demand data
-│   │   ├── weather/             # Meteorological data
-│   │   ├── market_prices/       # Electricity prices from ENTSO-E
-│   │   └── fundamentals/        # Generation, load, flows
-│   ├── modified_data/           # Processed data
-│   └── transformed_data/        # Feature-engineered data
-│
-├── data_recuperation/           # Data collection scripts
-│   ├── data_recuperation_energy.py     # Energy consumption (ODRE)
-│   ├── data_recuperation_meteo.py      # Weather (Open-Meteo)
-│   ├── data_market_prices.py           # Prices (ENTSO-E) ⭐ NEW
-│   └── data_fundamentals.py            # Production, load (ENTSO-E) ⭐ NEW
-│
-├── data_processing/             # Data transformation
-│   ├── transformation.py        # Feature engineering
-│   └── split_train_test.py     # Train/test splitting
-│
-├── model/                       # Demand forecasting models
-│   ├── DeepLearning/           # TFT (Temporal Fusion Transformer)
-│   ├── xgboost/                # Gradient boosting
-│   ├── Quantile/               # Probabilistic forecasts
-│   └── reg_lin/                # Linear baselines
-│
-├── trading_system/              # Trading & backtesting ⭐ NEW
-│   ├── strategies/             # Trading strategies
-│   │   └── demand_price_arbitrage.py   # Main strategy
-│   ├── backtesting/            # Backtest engine
-│   │   └── backtest_engine.py
-│   ├── signals/                # Signal generation
-│   ├── risk_management/        # Position sizing, stops
-│   └── utils/                  # Helper functions
-│       └── config_loader.py    # Configuration management
-│
-├── research/                    # Market research notebooks ⭐ NEW
-│   ├── notebooks/
-│   │   ├── demand_analysis/    # Existing demand analysis
-│   │   └── market_research/    # NEW: Price analysis, trading
-│   └── reports/                # Generated reports
-│
-├── outputs/                     # Results ⭐ NEW
-│   ├── figures/                # Visualizations
-│   ├── reports/                # PDF/HTML reports
-│   └── logs/                   # System logs
-│
-└── run_backtest_example.py      # Example: Run complete backtest ⭐ NEW
+┌─────────────────────┐
+│  1. COLLECTE DATA   │  Open-Meteo API, ODRE, ENTSO-E
+│  data_collection/   │  → data/raw_data/
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  2. TRAITEMENT      │  Feature engineering
+│  data_processing/   │  → Scaler fitted & saved
+│  transformation.py  │  → data/transformed_data/
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  3. ENTRAÎNEMENT    │  XGBoost, LightGBM, TFT
+│  model/*/train_*.py │  → models/xgboost/xgb_daily.pkl ✅
+│                     │  → models/scalers/scaler_*.pkl ✅
+│                     │  → models/*/features_*.json ✅
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  4. INFÉRENCE       │  Load weights + scaler
+│  src/api/main.py    │  → Prédictions temps réel
+│  model/predict_*.py │
+└─────────────────────┘
 ```
+
+### Points clés
+
+✅ **Les poids sont sauvegardés** : `joblib.dump(model, "models/xgboost/xgb_daily.pkl")`
+✅ **Le scaler est sauvegardé** : `joblib.dump(scaler, "models/scalers/scaler_daily.pkl")`
+✅ **L'ordre des features est sauvegardé** : `features_daily.json`
+✅ **Même transformation pour training et inférence** : `fit_scaler=True/False`
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation
 
-### 1. Installation
+### Prérequis
+
+- Python 3.10+
+- Docker (optionnel)
+- Git
+
+### Installation locale
 
 ```bash
-# Clone the repository
+# Cloner le repo
 git clone https://github.com/rav-lad/energy-demand-forecast.git
 cd energy-demand-forecast
 
-# Install dependencies
+# Créer environnement virtuel
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate  # Windows
+
+# Installer dépendances
 pip install -r requirements.txt
 ```
 
-### 2. Configuration
+### Configuration
 
 ```bash
-# Copy environment template
+# Créer fichier .env pour les API keys
 cp .env.example .env
 
-# Edit .env and add your ENTSO-E API key
-# Get free API key at: https://transparency.entsoe.eu/
+# Éditer .env avec votre clé ENTSO-E
 nano .env
 ```
 
-Set your API key:
-```bash
-ENTSOE_API_KEY=your_key_here
+Ajouter votre clé API :
+```
+ENTSOE_API_KEY=your_api_key_here
 ```
 
-### 3. Collect Market Data
+Obtenir une clé gratuite : https://transparency.entsoe.eu/
+
+---
+
+## 🛠️ Commandes Make
+
+Make simplifie l'exécution des commandes longues. Utilisez `make help` pour voir toutes les commandes.
+
+### Commandes principales
+
+#### 📦 Installation et setup
 
 ```bash
-# Collect electricity prices for France (2020-2024)
-python data_recuperation/data_market_prices.py \
-    --start_date 2020-01-01 \
-    --end_date 2024-12-31 \
-    --countries FR DE ES \
-    --output_dir data/raw_data/market_prices
-
-# Collect fundamental data (generation, load)
-python data_recuperation/data_fundamentals.py \
-    --country FR \
-    --data_type all \
-    --start_date 2020-01-01 \
-    --end_date 2024-12-31
+make install          # Installe toutes les dépendances Python
+make setup            # Setup complet : install + création des répertoires
 ```
 
-### 4. Run Example Backtest
+#### 📊 Collecte de données
 
 ```bash
-# Run complete backtest with synthetic data
-python run_backtest_example.py
+make collect-all      # Collecte toutes les données (météo, énergie, marché)
+make collect-weather  # Collecte uniquement les données météo historiques
+make collect-market   # Collecte prix électricité et fondamentaux ENTSO-E
 ```
 
-This will:
-- Load configuration from `config.yaml`
-- Generate sample data (demand + prices)
-- Calibrate the demand-price arbitrage strategy
-- Run backtest simulation
-- Calculate performance metrics
-- Save results to `outputs/backtests/`
-
-### 5. Train Demand Forecasting Models
+#### 🔄 Traitement des données
 
 ```bash
-# Train XGBoost model
-python model/xgboost/train_xgboost.py --frequency daily
+make process-data     # Transforme les données brutes en features ML
+make split-data       # Split train/validation/test sets
+```
 
-# Train TFT model
-python model/DeepLearning/train_tft.py --frequency daily --max_epochs 30
+#### 🤖 Entraînement des modèles
 
-# Make predictions
-python model/predict_future.py --model xgboost --frequency daily
+```bash
+make train-xgboost    # Entraîne XGBoost (daily)
+make train-lightgbm   # Entraîne LightGBM quantile
+make train-tft        # Entraîne Temporal Fusion Transformer
+make train-all        # Entraîne tous les modèles
+```
+
+#### 🔍 Optimisation hyperparamètres
+
+```bash
+make optim-xgboost    # Optuna pour XGBoost
+make optim-lightgbm   # Optuna pour LightGBM
+```
+
+#### 🎯 Prédictions
+
+```bash
+make predict-xgboost  # Prédictions avec XGBoost
+make predict-future   # Prédictions futures (14 jours)
+```
+
+#### 🌐 API et Dashboard
+
+```bash
+make api              # Lance API FastAPI (http://localhost:8000)
+make dashboard        # Lance dashboard Streamlit (http://localhost:8501)
+make api-docker       # Lance API dans Docker
+```
+
+#### 📈 Backtesting et Trading
+
+```bash
+make backtest         # Lance backtest de stratégies trading
+make run-trading      # Exécute système de trading
+```
+
+#### 🧪 Tests et qualité
+
+```bash
+make test             # Lance tous les tests pytest
+make lint             # Lint avec flake8
+make format           # Format code avec black
+make check            # Lint + format + tests
+```
+
+#### 🧹 Nettoyage
+
+```bash
+make clean            # Nettoie fichiers cache Python
+make clean-data       # Supprime toutes les données collectées
+make clean-models     # Supprime tous les modèles entraînés
+make clean-all        # Nettoyage complet
+```
+
+#### 📚 Documentation
+
+```bash
+make docs             # Génère documentation
+make help             # Affiche toutes les commandes disponibles
+```
+
+### Exemple d'utilisation
+
+```bash
+# Workflow complet du début
+make setup              # 1. Setup initial
+make collect-all        # 2. Collecte données
+make process-data       # 3. Traitement
+make train-xgboost      # 4. Entraînement
+make api                # 5. Lancement API
+
+# Ou workflow d'optimisation
+make optim-xgboost      # Recherche meilleurs hyperparamètres
+make train-xgboost      # Réentraîne avec meilleurs params
+make predict-xgboost    # Prédictions
 ```
 
 ---
 
-## 📊 Trading Strategies
+## 📖 Workflow complet
 
-### 1. Demand-Price Arbitrage (Implemented)
+### Scénario 1 : Premier entraînement (from scratch)
 
-**Strategy Logic**:
-- **BUY Signal**: High demand predicted + Low renewable production → Prices likely to rise
-- **SELL Signal**: Low demand predicted + High renewable production → Prices likely to fall
+```bash
+# 1. Installer dépendances
+make install
 
-**Parameters** (configurable in `config.yaml`):
-```yaml
-trading:
-  demand_price_arbitrage:
-    signals:
-      buy_threshold: 0.95        # Buy if demand > 95th percentile
-      sell_threshold: 0.25       # Sell if demand < 25th percentile
-      renewable_threshold_high: 0.7   # 70%+ renewable = sell signal
-      renewable_threshold_low: 0.3    # <30% renewable = buy signal
+# 2. Collecter données brutes
+make collect-weather     # → data/raw_data/weather/
+make collect-market      # → data/raw_data/market_prices/
+
+# 3. Traiter données (fit scaler)
+python data_processing/transformation.py --frequency daily --fit_scaler
+
+# Résultat :
+# - data/transformed_data/train_daily_reglin_xgboost.csv
+# - models/scalers/scaler_daily_reglin_xgboost.pkl ✅ SAUVEGARDÉ
+
+# 4. Entraîner modèle
+make train-xgboost
+
+# Résultat :
+# - models/xgboost/xgb_daily.pkl ✅ POIDS SAUVEGARDÉS
+# - models/xgboost/features_daily.json ✅ ORDRE FEATURES
+
+# 5. Vérifier que tout fonctionne
+make api
+# Ouvrir http://localhost:8000/docs
+# Tester endpoint /predict
 ```
 
-**Performance** (on synthetic data):
-- Sharpe Ratio: 1.5-2.0
-- Win Rate: 60-70%
-- Max Drawdown: 10-15%
+### Scénario 2 : Nouvelle prédiction (inférence)
 
-**Example Usage**:
+```bash
+# 1. Charger nouvelles données météo
+python data_collection/pipeline.py --forecast
+
+# 2. Transformer avec scaler existant (fit_scaler=False)
+python data_processing/transformation.py --frequency daily --no-fit-scaler
+
+# Code interne :
+# scaler = joblib.load("models/scalers/scaler_daily.pkl")  # ✅ CHARGE SCALER
+# df[numeric_cols] = scaler.transform(df[numeric_cols])
+
+# 3. Charger modèle et prédire
+python model/predict_future.py --model xgboost --frequency daily
+
+# Code interne :
+# model = joblib.load("models/xgboost/xgb_daily.pkl")  # ✅ CHARGE POIDS
+# predictions = model.predict(X_transformed)
+```
+
+### Scénario 3 : Optimisation hyperparamètres
+
+```bash
+# 1. Optuna recherche meilleurs hyperparamètres
+make optim-xgboost
+
+# Résultat :
+# - models/xgboost/best_params_daily.json
+
+# 2. Réentraîner avec meilleurs params
+make train-xgboost
+
+# Le script train_xgboost.py charge automatiquement best_params_daily.json
+```
+
+---
+
+## 🧠 Design du système ML
+
+### 1. Transformation des données (`data_processing/transformation.py`)
+
+Le fichier `transformation.py` est **crucial** car il gère :
+- La création de features dérivées
+- Le fit/transform du scaler
+- La sauvegarde/chargement du scaler
+
+#### Code clé : `transform_regression_and_xgb()`
+
 ```python
-from trading_system.strategies.demand_price_arbitrage import DemandPriceArbitrageStrategy
+def transform_regression_and_xgb(
+    df: pd.DataFrame,
+    frequency: str = "daily",
+    fit_scaler: bool = True,  # ← PARAMÈTRE CLÉ
+    save: bool = True,
+    scaler_path: Path | None = None,
+):
+    # 1. Feature engineering
+    df['temp_mean'] = (df['temperature_2m_max'] + df['temperature_2m_min']) / 2
+    df['temp_range'] = df['temperature_2m_max'] - df['temperature_2m_min']
+    df['wind_range'] = df['wind_gusts_10m_max'] - df['wind_speed_10m_max']
+    # ... 30+ features
 
-strategy = DemandPriceArbitrageStrategy(
-    buy_demand_threshold=0.95,
-    sell_demand_threshold=0.25
+    # 2. One-hot encoding
+    df = pd.get_dummies(df, columns=['weather_code', 'wind_sector', 'insee_region'])
+
+    # 3. Normalisation - PARTIE CRITIQUE
+    target_cols = ["conso_elec_mw", "conso_gaz_mw"]
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.difference(target_cols)
+
+    scaler_path = scaler_path or SCALER_DIR / f"scaler_{frequency}_reglin_xgboost.pkl"
+
+    if fit_scaler:
+        # TRAINING : Fit et sauvegarde ✅
+        scaler = StandardScaler()
+        df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+        joblib.dump(scaler, scaler_path)
+        print(f"Scaler saved: {scaler_path}")
+    else:
+        # INFERENCE : Charge et transforme ✅
+        scaler = joblib.load(scaler_path)
+        df[numeric_cols] = scaler.transform(df[numeric_cols])
+        print(f"Scaler loaded: {scaler_path}")
+
+    return df
+```
+
+**Pourquoi c'est important ?**
+- Le StandardScaler **doit être fitted sur les données d'entraînement**
+- Puis **réutilisé tel quel pour l'inférence** (pas de re-fit!)
+- Si on re-fit le scaler sur les nouvelles données → prédictions incorrectes
+
+### 2. Entraînement (`model/xgboost/train_xgboost.py`)
+
+```python
+def train_xgboost(frequency: str):
+    # 1. Charger données brutes
+    df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
+
+    # 2. Transformer avec scaler pré-fitted
+    df = transform_regression_and_xgb(
+        df_raw,
+        frequency=frequency,
+        fit_scaler=False,  # ← Utilise scaler existant
+        save=False
+    )
+
+    y = df[["conso_elec_mw", "conso_gaz_mw"]]
+    X = df.drop(columns=["conso_elec_mw", "conso_gaz_mw"])
+
+    # 3. Charger meilleurs hyperparamètres
+    with open(MODELS_DIR / f"best_params_{frequency}.json", "r") as f:
+        best_params = json.load(f)
+
+    # 4. Entraîner modèle
+    base_model = XGBRegressor(**best_params, n_jobs=-1, random_state=42)
+    model = MultiOutputRegressor(base_model)
+    model.fit(X, y)
+
+    # 5. SAUVEGARDER POIDS ✅
+    joblib.dump(model, MODELS_DIR / f"xgb_{frequency}.pkl")
+    print(f"Model saved: {MODELS_DIR / f'xgb_{frequency}.pkl'}")
+
+    # 6. SAUVEGARDER ORDRE DES FEATURES ✅
+    features = list(X.columns)
+    with open(MODELS_DIR / f"features_{frequency}.json", "w") as f:
+        json.dump(features, f, indent=4)
+```
+
+**Ce qui est sauvegardé :**
+- `models/xgboost/xgb_daily.pkl` → Poids du modèle complet (MultiOutputRegressor avec XGBRegressor)
+- `models/xgboost/features_daily.json` → Liste ordonnée des features
+- `models/scalers/scaler_daily_reglin_xgboost.pkl` → StandardScaler fitted
+
+### 3. Inférence (`src/api/main.py` ou `model/predict_future.py`)
+
+```python
+# 1. Charger modèle ✅
+model = joblib.load("models/xgboost/xgb_daily.pkl")
+
+# 2. Charger ordre des features ✅
+with open("models/xgboost/features_daily.json", "r") as f:
+    feature_order = json.load(f)
+
+# 3. Transformer nouvelles données avec scaler existant ✅
+df_new = transform_regression_and_xgb(
+    df_raw_new,
+    frequency="daily",
+    fit_scaler=False,  # ← CHARGE le scaler existant
+    save=False
 )
 
-# Calibrate on historical data
-strategy.calibrate(historical_demand, renewable_share)
+# 4. S'assurer que l'ordre des features est correct
+X_new = df_new[feature_order]
 
-# Generate signals
-signals = strategy.generate_signals(predicted_demand, renewable_share)
+# 5. Prédire
+predictions = model.predict(X_new)
 ```
 
-### 2. Cross-Regional Arbitrage (Planned)
+### Schéma récapitulatif : Training vs Inference
 
-Exploit price differences between interconnected regions (e.g., France-Germany).
-
-### 3. Renewable Production Trading (Planned)
-
-Trade based on wind/solar production forecasts using GraphCast weather model.
-
----
-
-## 📈 Data Sources
-
-### Free Data Sources (Currently Used)
-
-| Source | Data Type | Coverage | API |
-|--------|-----------|----------|-----|
-| **ENTSO-E Transparency** | Day-ahead prices | EU-wide | ✅ Free |
-| **ENTSO-E Transparency** | Generation by type | EU-wide | ✅ Free |
-| **ENTSO-E Transparency** | Load (actual + forecast) | EU-wide | ✅ Free |
-| **ENTSO-E Transparency** | Cross-border flows | EU-wide | ✅ Free |
-| **ODRE (data.gouv.fr)** | French energy consumption | France | ✅ Free |
-| **Open-Meteo** | Weather forecasts | Global | ✅ Free |
-| **Kaggle Dataset** | Preprocessed FR data (2013-2024) | France | ✅ Free |
-
-### Future Data Sources
-
-| Source | Data Type | Coverage | API |
-|--------|-----------|----------|-----|
-| **Google GraphCast** | Global weather forecasts | Global | 🔄 In development |
-| **EPEX SPOT** | Intraday prices | Central Europe | 💰 Paid |
-| **Montel** | Forward curves | Europe | 💰 Paid |
+| Étape | Training | Inference |
+|-------|----------|-----------|
+| **Données** | `data/raw_data/train_daily.csv` | Nouvelles données (API météo) |
+| **Transformation** | `fit_scaler=True` → Fit + Save | `fit_scaler=False` → Load + Transform |
+| **Scaler** | `scaler.fit_transform()` + `joblib.dump()` | `joblib.load()` + `scaler.transform()` |
+| **Modèle** | `model.fit(X, y)` + `joblib.dump()` | `joblib.load()` + `model.predict(X)` |
+| **Output** | Poids + Scaler + Features.json | Prédictions |
 
 ---
 
-## 🧪 Backtesting
+## 🤖 Modèles disponibles
 
-The backtesting engine simulates realistic trading conditions:
+### 1. XGBoost (Gradient Boosting)
 
-**Features**:
-- ✅ Transaction costs (0.1% default)
-- ✅ Slippage modeling (0.05% default)
-- ✅ Position limits (max size, max concurrent positions)
-- ✅ Capital management
-- ✅ Mark-to-market for open positions
+**Fichiers** :
+- Entraînement : `model/xgboost/train_xgboost.py`
+- Optimisation : `model/xgboost/optim_xgboost.py`
+- Prédiction : `model/xgboost/predict_xgboost.py`
 
-**Performance Metrics**:
-- Total Return
-- Sharpe Ratio & Sortino Ratio
-- Maximum Drawdown & Calmar Ratio
-- Win Rate & Profit Factor
-- Average Trade Duration
-- Gross Profit/Loss
+**Utilisation** :
+```bash
+# Optimiser hyperparamètres avec Optuna
+make optim-xgboost
 
-**Example Output**:
-```
-BACKTEST RESULTS
-================================================================
-Capital:
-  Initial Capital:          100,000.00 EUR
-  Final Capital:            115,230.00 EUR
-  Total Return:                  15.23 %
+# Entraîner avec meilleurs params
+make train-xgboost
 
-Trade Statistics:
-  Total Trades:                     45
-  Winning Trades:                   28
-  Losing Trades:                    17
-  Win Rate:                      62.22 %
-  Profit Factor:                   1.85
-
-Risk Metrics:
-  Sharpe Ratio:                    1.75
-  Sortino Ratio:                   2.31
-  Max Drawdown:                  -8.45 %
-  Calmar Ratio:                    1.80
+# Prédire
+make predict-xgboost
 ```
 
+**Sorties** :
+- `models/xgboost/xgb_daily.pkl` (poids)
+- `models/xgboost/features_daily.json` (features)
+- `models/xgboost/best_params_daily.json` (hyperparams)
+
+### 2. LightGBM Quantile (Prévisions probabilistes)
+
+**Fichiers** :
+- Entraînement : `model/Quantile/train_lightgbm_quantile.py`
+- Optimisation : `model/Quantile/optim_lightgbm_quantile.py`
+
+**Particularité** : Prédictions avec quantiles (5%, 50%, 95%) pour incertitude
+
+**Utilisation** :
+```bash
+make train-lightgbm
+```
+
+**Transformation spéciale** :
+```python
+# Utilise transform_lightgbm_quantile() au lieu de transform_regression_and_xgb()
+# Ajoute lags et rolling windows
+df = transform_lightgbm_quantile(df, frequency="daily", lags=True)
+```
+
+### 3. Temporal Fusion Transformer (Deep Learning)
+
+**Fichiers** :
+- Entraînement : `model/DeepLearning/train_tft.py`
+- Config : `model/DeepLearning/tft_config.yaml`
+
+**Particularité** : Modèle attention-based pour séries temporelles, gère contexte long
+
+**Utilisation** :
+```bash
+make train-tft
+```
+
+**Transformation spéciale** :
+```python
+# Utilise transform_dl() avec time_idx
+df = transform_dl(df, seq_len=24, filter_too_short=True)
+```
+
+### 4. Régression Linéaire (Baseline)
+
+**Fichiers** :
+- Entraînement : `model/reg_lin/train_reg_lin.py`
+- Variantes : Ridge, Lasso
+
+**Utilisation** :
+```bash
+python model/reg_lin/train_reg_lin.py --frequency daily --model ridge
+```
+
 ---
 
-## 🗺️ Roadmap
+## 📁 Structure des données
 
-### Phase 1: Infrastructure ✅ (Completed)
-- [x] Project setup and configuration
-- [x] ENTSO-E API integration
-- [x] Backtesting engine
-- [x] First trading strategy (demand-price arbitrage)
-- [x] Documentation
+```
+data/
+├── raw_data/                       # Données brutes collectées
+│   ├── energy/                    # Consommation ODRE
+│   │   ├── conso_elec_daily.csv
+│   │   └── conso_gaz_daily.csv
+│   ├── weather/                   # Météo Open-Meteo
+│   │   ├── weather_daily_region11.csv
+│   │   └── ...
+│   ├── market_prices/             # Prix ENTSO-E
+│   │   └── prices_FR_2020_2024.csv
+│   └── fundamentals/              # Production, load
+│       ├── generation_FR.csv
+│       └── load_FR.csv
+│
+├── modified_data/                 # Données fusionnées et nettoyées
+│   ├── train_daily.csv           # Dataset d'entraînement
+│   ├── test_daily.csv            # Dataset de test
+│   └── train_hourly.csv
+│
+└── transformed_data/              # Features engineered
+    ├── train_daily_reglin_xgboost.csv
+    └── train_daily_lightgbm_quantile_withlags.csv
 
-### Phase 2: Data & Models (Current - Week 1-2)
-- [ ] Collect historical ENTSO-E data (2020-2024)
-- [ ] Train demand forecasting models on full dataset
-- [ ] Validate model accuracy on recent data
-- [ ] Create data pipeline automation
-
-### Phase 3: Advanced Strategies (Week 3-4)
-- [ ] Cross-regional arbitrage strategy
-- [ ] Renewable production trading strategy
-- [ ] Strategy parameter optimization
-- [ ] Walk-forward validation
-
-### Phase 4: GraphCast Integration (Week 5-6)
-- [ ] Integrate Google GraphCast for global weather forecasts
-- [ ] Multi-country demand predictions
-- [ ] Enhanced renewable production forecasts
-- [ ] Cross-border trading opportunities
-
-### Phase 5: Research & Analysis (Week 7-8)
-- [ ] Price driver analysis notebooks
-- [ ] Market regime detection
-- [ ] Extreme event analysis
-- [ ] Interactive dashboard (Streamlit)
-
-### Phase 6: Production Hardening (Week 9-10)
-- [ ] Unit tests and integration tests
-- [ ] Logging and monitoring
-- [ ] Performance optimization
-- [ ] Docker containerization
-- [ ] Documentation website
+models/
+├── xgboost/
+│   ├── xgb_daily.pkl             # ✅ Poids modèle
+│   ├── features_daily.json        # ✅ Ordre features
+│   └── best_params_daily.json     # Hyperparamètres Optuna
+│
+├── scalers/
+│   └── scaler_daily_reglin_xgboost.pkl  # ✅ StandardScaler fitted
+│
+├── Quantile/
+│   ├── lgb_quantile_daily.pkl
+│   └── best_params_daily.json
+│
+└── DeepLearning/
+    └── tft_daily/
+        └── checkpoints/
+            └── best_model.ckpt
+```
 
 ---
 
-## 📊 Dataset
+## 🌐 API et Dashboard
+
+### API FastAPI
+
+```bash
+# Lancer API
+make api
+# ou
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Accéder à la doc interactive
+http://localhost:8000/docs
+```
+
+**Endpoints principaux** :
+- `POST /predict` : Prédiction pour nouvelles données
+- `GET /health` : Health check
+- `GET /models` : Liste des modèles disponibles
+
+**Exemple d'utilisation** :
+```python
+import requests
+
+data = {
+    "date": "2024-11-15",
+    "temperature_2m_max": 15.5,
+    "temperature_2m_min": 8.2,
+    "rain_sum": 2.3,
+    # ... autres features météo
+    "insee_region": "11"
+}
+
+response = requests.post("http://localhost:8000/predict", json=data)
+print(response.json())
+# {"conso_elec_mw": 4523.45, "conso_gaz_mw": 1234.56}
+```
+
+### Dashboard Streamlit
+
+```bash
+# Lancer dashboard
+make dashboard
+# ou
+streamlit run src/dashboard/app.py
+
+# Accéder au dashboard
+http://localhost:8501
+```
+
+**Fonctionnalités** :
+- Visualisation des prédictions historiques
+- Comparaison des modèles
+- Analyse des erreurs
+- Exploration des features importantes
+
+---
+
+## 🔬 MLOps et Expérimentation
+
+### MLflow Tracking
+
+```python
+# Activation dans train_xgboost.py
+from src.ml.mlflow_tracker import MLflowTracker
+
+tracker = MLflowTracker(experiment_name="xgboost_daily")
+tracker.log_params(best_params)
+tracker.log_metrics({"rmse_elec": rmse_elec, "rmse_gaz": rmse_gaz})
+tracker.log_model(model, "xgboost")
+```
+
+```bash
+# Visualiser expériences
+mlflow ui
+# Accéder à http://localhost:5000
+```
+
+### Optuna Hyperparameter Tuning
+
+```python
+# Exemple dans optim_xgboost.py
+from src.ml.optuna_tuner import OptunaTuner
+
+tuner = OptunaTuner(n_trials=100)
+best_params = tuner.optimize(
+    objective_func=objective,
+    study_name="xgboost_daily"
+)
+```
+
+---
+
+## 🧪 Tests et CI/CD
+
+### Tests locaux
+
+```bash
+# Tous les tests
+make test
+
+# Tests spécifiques
+pytest tests/test_transformation.py -v
+
+# Avec coverage
+pytest --cov=data_processing --cov-report=html
+```
+
+### CI/CD GitHub Actions
+
+Le projet utilise GitHub Actions pour CI/CD automatique :
+
+**3 jobs automatiques sur chaque push** :
+
+1. **`test`** : Tests + Linting + Formatting
+   - `pytest` : Tests unitaires
+   - `flake8` : Linting
+   - `black --check` : Vérification formatage
+
+2. **`docker-build`** : Construction image Docker
+   - Build de l'image API
+   - Vérification qu'elle démarre correctement
+
+3. **`security-scan`** : Scan de sécurité
+   - Trivy : Scan vulnérabilités dépendances
+   - Upload résultats vers GitHub Security
+
+**Fichier** : `.github/workflows/ci.yml`
+
+---
+
+## 🐳 Docker
+
+### Build et run API
+
+```bash
+# Build image
+docker build -t energy-forecast-api .
+
+# Run conteneur
+docker run -p 8000:8000 energy-forecast-api
+
+# Ou avec Make
+make api-docker
+```
+
+### Docker Compose (API + Dashboard)
+
+```bash
+docker-compose up
+
+# Services disponibles :
+# - API : http://localhost:8000
+# - Dashboard : http://localhost:8501
+```
+
+---
+
+## 📊 Dataset Kaggle
 
 **France Energy and Weather Data – Daily & Hourly (2013–2024)**
 
-🔗 Kaggle: [France Energy Weather Hourly](https://www.kaggle.com/datasets/ravvvvvvvvvvvv/france-energy-weather-hourly)
+🔗 [Kaggle Dataset](https://www.kaggle.com/datasets/ravvvvvvvvvvvv/france-energy-weather-hourly)
 
-This dataset combines daily and hourly:
-- **Energy consumption** (electricity and gas)
-- **Weather conditions** (temperature, wind, solar, precipitation)
-- **13 French regions** (INSEE codes)
+**Contenu** :
+- 13 régions françaises (INSEE codes)
+- Données quotidiennes et horaires
+- Variables météo : température, vent, radiation solaire, précipitations
+- Consommation électricité et gaz
 
-**Variables**:
-- Temperature (min, max, mean)
-- Precipitation
-- Wind speed
-- Solar radiation
-- Sunshine duration
-- Electricity consumption (MW)
-- Gas consumption (MW)
+**Utilisation** :
+```bash
+# Télécharger depuis Kaggle
+kaggle datasets download -d ravvvvvvvvvvvv/france-energy-weather-hourly
 
----
-
-## 🧠 Models
-
-### Demand Forecasting Models
-
-1. **Temporal Fusion Transformer (TFT)**
-   - Deep interpretable time-series model
-   - Attention mechanisms for temporal dependencies
-   - Quantile forecasting with uncertainty
-   - Best for: Multi-horizon forecasts
-
-2. **XGBoost**
-   - Gradient boosting decision trees
-   - Feature-based with lag values
-   - Fast training and inference
-   - Best for: Point forecasts, feature importance
-
-3. **LightGBM Quantile**
-   - Quantile regression (5%, 50%, 95%)
-   - Distributional outputs
-   - Best for: Probabilistic forecasts
-
-4. **Linear Models** (Ridge/Lasso)
-   - Regularized linear regression
-   - Interpretable baselines
-   - Best for: Quick prototyping
-
-### Price Forecasting Models (Planned)
-
-- XGBoost for day-ahead prices
-- LSTM for price sequences
-- Ensemble methods
-
----
-
-## 🛠️ Usage Examples
-
-### Load Configuration
-
-```python
-from trading_system.utils.config_loader import get_config
-
-config = get_config()
-initial_capital = config.get('trading.general.initial_capital')
-```
-
-### Generate Trading Signals
-
-```python
-from trading_system.strategies.demand_price_arbitrage import DemandPriceArbitrageStrategy
-import pandas as pd
-
-# Load your data
-demand = pd.read_csv('data/modified_data/predicted_demand.csv')
-renewable = pd.read_csv('data/raw_data/fundamentals/renewable_share_FR.csv')
-
-# Initialize strategy
-strategy = DemandPriceArbitrageStrategy()
-strategy.calibrate(demand['2020':'2022'], renewable['2020':'2022'])
-
-# Generate signals for 2023
-signals = strategy.generate_signals(
-    demand['2023'],
-    renewable['2023']
-)
-
-print(signals[signals['signal'] != 0])  # Show non-zero signals
-```
-
-### Run Backtest
-
-```python
-from trading_system.backtesting.backtest_engine import BacktestEngine
-
-# Initialize engine
-engine = BacktestEngine(
-    initial_capital=100000,
-    transaction_cost=0.001,
-    max_position_size=5000
-)
-
-# Process signals
-engine.process_signals(
-    data=prices_df,
-    signals=signals['signal'],
-    price_column='price_FR'
-)
-
-# Print results
-engine.print_results()
+# Extraire dans data/raw_data/
+unzip france-energy-weather-hourly.zip -d data/raw_data/
 ```
 
 ---
 
-## 📚 Resources
+## 🚨 Troubleshooting
 
-### APIs & Data
-- [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/) - Free electricity market data
-- [ODRE (data.gouv.fr)](https://odre.opendatasoft.com/) - French energy consumption
-- [Open-Meteo](https://open-meteo.com/) - Free weather API
-- [Google GraphCast](https://deepmind.google/discover/blog/graphcast-ai-model-for-faster-and-more-accurate-global-weather-forecasting/) - ML weather forecasting
+### Problème : Erreur "scaler not found"
 
-### Research Papers
-- [Temporal Fusion Transformers (2021)](https://arxiv.org/abs/1912.09363) - Interpretable time-series forecasting
-- [GraphCast (2023)](https://www.science.org/doi/10.1126/science.adi2336) - ML weather prediction
-- [Electricity Price Forecasting](https://doi.org/10.1016/j.apenergy.2020.114983) - Review paper
+```python
+FileNotFoundError: models/scalers/scaler_daily_reglin_xgboost.pkl not found
+```
 
-### Tools
-- [pytorch-forecasting](https://pytorch-forecasting.readthedocs.io/) - TFT implementation
-- [entsoe-py](https://github.com/EnergieID/entsoe-py) - ENTSO-E API client
-- [XGBoost](https://xgboost.readthedocs.io/) - Gradient boosting
-- [LightGBM](https://lightgbm.readthedocs.io/) - Fast gradient boosting
+**Solution** : Fit le scaler d'abord
+```bash
+python data_processing/transformation.py --frequency daily --fit-scaler
+```
+
+### Problème : Prédictions incorrectes
+
+**Cause possible** : Ordre des features incorrect
+
+**Solution** : Vérifier que l'ordre correspond à `features_daily.json`
+```python
+with open("models/xgboost/features_daily.json") as f:
+    feature_order = json.load(f)
+X = df[feature_order]  # ✅ Réorganiser colonnes
+```
+
+### Problème : API key ENTSO-E invalide
+
+```python
+requests.exceptions.HTTPError: 401 Unauthorized
+```
+
+**Solution** : Vérifier `.env`
+```bash
+cat .env
+# ENTSOE_API_KEY doit être défini
+```
+
+---
+
+## 📚 Ressources
+
+### APIs et données
+- [ENTSO-E Transparency Platform](https://transparency.entsoe.eu/) - Données marché électricité
+- [ODRE (data.gouv.fr)](https://odre.opendatasoft.com/) - Consommation énergie France
+- [Open-Meteo](https://open-meteo.com/) - API météo gratuite
+
+### Documentation technique
+- [XGBoost Docs](https://xgboost.readthedocs.io/)
+- [LightGBM Docs](https://lightgbm.readthedocs.io/)
+- [PyTorch Forecasting](https://pytorch-forecasting.readthedocs.io/) - TFT
+- [FastAPI Docs](https://fastapi.tiangolo.com/)
+- [Streamlit Docs](https://docs.streamlit.io/)
+
+### Papers
+- [Temporal Fusion Transformers (2021)](https://arxiv.org/abs/1912.09363)
+- [Electricity Price Forecasting Review](https://doi.org/10.1016/j.apenergy.2020.114983)
 
 ---
 
 ## 🤝 Contributing
 
-This is a research project. Contributions welcome!
+Contributions bienvenues ! Domaines d'amélioration :
 
-**Areas for contribution**:
-- New trading strategies
-- Additional data sources
-- Performance optimizations
-- Documentation improvements
-- Visualization tools
-
----
-
-## ⚖️ Legal & Compliance
-
-**Important Notes**:
-
-1. **Research Only**: This system is designed for research and educational purposes.
-
-2. **Trading Regulations**: Real energy trading requires:
-   - Market participant registration
-   - Compliance with REMIT (Market Abuse Regulation)
-   - Proper licensing in your jurisdiction
-
-3. **Data Usage**:
-   - ENTSO-E data: Check their terms of service
-   - Ensure compliance with data provider terms
-
-4. **No Guarantees**: Past performance does not indicate future results.
+- Nouveaux modèles (Prophet, N-BEATS, etc.)
+- Sources de données supplémentaires
+- Optimisations performance
+- Tests unitaires
+- Documentation
 
 ---
 
 ## 📝 License
 
-This project is for educational and research purposes. Not licensed for commercial trading.
+Projet éducatif et de recherche.
 
 ---
 
-## 👤 Author
+## 👤 Auteur
 
-Created by [@rav-lad](https://github.com/rav-lad)
+Créé par [@rav-lad](https://github.com/rav-lad)
 
-**Contact**: [Create an issue](https://github.com/rav-lad/energy-demand-forecast/issues) for questions or collaboration.
-
----
-
-## 🙏 Acknowledgments
-
-- **ENTSO-E** for providing free electricity market data
-- **Open-Meteo** for weather data API
-- **Google DeepMind** for GraphCast weather model
-- **PyTorch Forecasting** team for TFT implementation
-- Open-source ML community
+**Contact** : [Créer une issue](https://github.com/rav-lad/energy-demand-forecast/issues)
 
 ---
 
 <p align="center">
-  <b>⚡ Transforming Energy Demand Forecasts into Trading Signals ⚡</b>
+  <b>⚡ Prévision de la demande énergétique avec ML ⚡</b>
 </p>
 
 <p align="center">
-  Made with ❤️ for energy market research
+  Made with ❤️ for energy forecasting research
 </p>
