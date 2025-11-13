@@ -4,10 +4,11 @@ Configuration Loader Utility
 Loads configuration from config.yaml and provides easy access to settings.
 """
 
-import yaml
+import logging
 from pathlib import Path
 from typing import Any, Dict
-import logging
+
+import yaml
 
 logger = logging.getLogger(__name__)
 

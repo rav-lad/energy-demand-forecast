@@ -8,12 +8,13 @@ This module provides data quality checks for:
 - Model predictions
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -430,14 +431,8 @@ class DataValidator:
         Returns:
             True if all critical validations passed
         """
-        errors = [
-            r for r in self.validation_results if not r.passed and r.severity == "ERROR"
-        ]
-        warnings = [
-            r
-            for r in self.validation_results
-            if not r.passed and r.severity == "WARNING"
-        ]
+        errors = [r for r in self.validation_results if not r.passed and r.severity == "ERROR"]
+        warnings = [r for r in self.validation_results if not r.passed and r.severity == "WARNING"]
 
         logger.info(f"\nValidation Results: {len(self.validation_results)} checks")
 
@@ -448,9 +443,7 @@ class DataValidator:
                 else:
                     logger.warning(str(result))
 
-        logger.info(
-            f"✓ Passed: {len([r for r in self.validation_results if r.passed])}"
-        )
+        logger.info(f"✓ Passed: {len([r for r in self.validation_results if r.passed])}")
         logger.info(f"✗ Failed: {len(errors)} errors, {len(warnings)} warnings")
 
         # In strict mode, fail if any error

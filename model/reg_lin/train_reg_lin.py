@@ -1,9 +1,16 @@
+"""Linear regression model training for energy demand forecasting.
+
+This module trains Ridge and Lasso regression models for multi-output prediction
+of electricity and gas consumption.
+"""
+
 import argparse
-import pandas as pd
-import numpy as np
-import joblib
 import json
 from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.metrics import mean_squared_error
 from sklearn.multioutput import MultiOutputRegressor
@@ -26,11 +33,18 @@ from data_processing.transformation import transform_regression_and_xgb
 
 
 def train_reg_lin(model_type: str, frequency: str):
+    """Train linear regression model for energy demand forecasting.
+
+    Loads transformed training data, applies best hyperparameters, and trains
+    either a Lasso or Ridge regression model for multi-output prediction.
+
+    Args:
+        model_type: Type of linear model, either "lasso" or "ridge"
+        frequency: Data frequency, either "daily" or "hourly"
+    """
     # === 1. Load data ===
     df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
-    df = transform_regression_and_xgb(
-        df_raw, frequency=frequency, fit_scaler=False, save=False
-    )
+    df = transform_regression_and_xgb(df_raw, frequency=frequency, fit_scaler=False, save=False)
     y = df[["conso_elec_mw", "conso_gaz_mw"]]
     X = df.drop(columns=["conso_elec_mw", "conso_gaz_mw"])
 
@@ -39,11 +53,7 @@ def train_reg_lin(model_type: str, frequency: str):
         best_params_all = json.load(f)
     best_params = best_params_all[model_type]
 
-    base = (
-        Lasso(**best_params, max_iter=10000)
-        if model_type == "lasso"
-        else Ridge(**best_params)
-    )
+    base = Lasso(**best_params, max_iter=10000) if model_type == "lasso" else Ridge(**best_params)
     model = MultiOutputRegressor(base)
 
     # === 3. Train model ===

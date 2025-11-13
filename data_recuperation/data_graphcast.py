@@ -28,10 +28,11 @@ Usage (once implemented):
 
 import argparse
 import logging
-from pathlib import Path
 from datetime import datetime, timedelta
-import pandas as pd
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -364,10 +365,10 @@ For now, Open-Meteo provides sufficient weather forecasts.
     logger.warning("=" * 70)
     logger.info("\nThis is a placeholder script for future GraphCast integration.")
     logger.info("GraphCast provides:")
-    logger.info("  ✓ 0.25° resolution (28 km) global forecasts")
-    logger.info("  ✓ 10-day forecast horizon")
-    logger.info("  ✓ 100+ atmospheric variables")
-    logger.info("  ✓ State-of-the-art accuracy")
+    logger.info("  - 0.25° resolution (28 km) global forecasts")
+    logger.info("  - 10-day forecast horizon")
+    logger.info("  - 100+ atmospheric variables")
+    logger.info("  - State-of-the-art accuracy")
 
     logger.info("\nCurrent Solution: Open-Meteo API")
     logger.info("Run instead:")

@@ -13,11 +13,12 @@ Author: Quant Research Team
 Date: 2024-11-12
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Tuple, Optional, Dict, List
-from dataclasses import dataclass
-import logging
 from scipy import stats
 from scipy.optimize import minimize
 
@@ -42,7 +43,7 @@ class CrossRegionalArbitrageConfig:
 
     # Position sizing
     max_position_size: float = 1000.0  # MW per trade
-    position_sizing_method: str = 'proportional'  # 'fixed', 'proportional', 'optimal'
+    position_sizing_method: str = "proportional"  # 'fixed', 'proportional', 'optimal'
 
     # Risk management
     correlation_threshold: float = 0.7  # Minimum correlation to trade
@@ -89,7 +90,7 @@ class CrossRegionalArbitrageStrategy:
 
         # Default region pairs if not specified
         if config.region_pairs is None:
-            config.region_pairs = [('FR', 'DE'), ('FR', 'ES')]
+            config.region_pairs = [("FR", "DE"), ("FR", "ES")]
 
         self.config = config
         self.is_calibrated = False
@@ -103,10 +104,7 @@ class CrossRegionalArbitrageStrategy:
         )
 
     def test_cointegration(
-        self,
-        price_series_1: pd.Series,
-        price_series_2: pd.Series,
-        significance_level: float = 0.05
+        self, price_series_1: pd.Series, price_series_2: pd.Series, significance_level: float = 0.05
     ) -> Tuple[bool, float, float]:
         """
         Test for cointegration between two price series using Engle-Granger test.
@@ -149,10 +147,7 @@ class CrossRegionalArbitrageStrategy:
         return is_cointegrated, p_value, hedge_ratio
 
     def calculate_spread(
-        self,
-        price_1: pd.Series,
-        price_2: pd.Series,
-        hedge_ratio: float = 1.0
+        self, price_1: pd.Series, price_2: pd.Series, hedge_ratio: float = 1.0
     ) -> pd.Series:
         """
         Calculate price spread accounting for hedge ratio.
@@ -201,10 +196,7 @@ class CrossRegionalArbitrageStrategy:
 
         return half_life
 
-    def calibrate(
-        self,
-        prices_df: pd.DataFrame
-    ) -> None:
+    def calibrate(self, prices_df: pd.DataFrame) -> None:
         """
         Calibrate strategy on historical data.
 
@@ -216,13 +208,11 @@ class CrossRegionalArbitrageStrategy:
 
         # Test cointegration for each pair
         for region_1, region_2 in self.config.region_pairs:
-            price_col_1 = f'price_{region_1}'
-            price_col_2 = f'price_{region_2}'
+            price_col_1 = f"price_{region_1}"
+            price_col_2 = f"price_{region_2}"
 
             if price_col_1 not in prices_df.columns or price_col_2 not in prices_df.columns:
-                logger.warning(
-                    f"Missing price data for {region_1}-{region_2} pair. Skipping."
-                )
+                logger.warning(f"Missing price data for {region_1}-{region_2} pair. Skipping.")
                 continue
 
             p1 = prices_df[price_col_1]
@@ -233,20 +223,20 @@ class CrossRegionalArbitrageStrategy:
 
             pair_key = f"{region_1}_{region_2}"
             self.cointegration_results[pair_key] = {
-                'is_cointegrated': is_coint,
-                'p_value': p_value,
-                'hedge_ratio': hedge_ratio
+                "is_cointegrated": is_coint,
+                "p_value": p_value,
+                "hedge_ratio": hedge_ratio,
             }
             self.hedge_ratios[pair_key] = hedge_ratio
 
             if not is_coint:
                 logger.warning(
-                    f"⚠️  {region_1}-{region_2} not cointegrated (p={p_value:.4f}). "
+                    f"{region_1}-{region_2} not cointegrated (p={p_value:.4f}). "
                     f"Strategy may not work well."
                 )
             else:
                 logger.info(
-                    f"✅ {region_1}-{region_2} cointegrated (p={p_value:.4f}). "
+                    f"{region_1}-{region_2} cointegrated (p={p_value:.4f}). "
                     f"Hedge ratio: {hedge_ratio:.4f}"
                 )
 
@@ -256,8 +246,9 @@ class CrossRegionalArbitrageStrategy:
                 logger.info(f"   Spread half-life: {half_life:.2f} days")
 
         # Calculate correlation matrix
-        price_cols = [f'price_{r1}' for r1, _ in self.config.region_pairs] + \
-                     [f'price_{r2}' for _, r2 in self.config.region_pairs]
+        price_cols = [f"price_{r1}" for r1, _ in self.config.region_pairs] + [
+            f"price_{r2}" for _, r2 in self.config.region_pairs
+        ]
         price_cols = list(set(price_cols))  # Remove duplicates
         available_cols = [col for col in price_cols if col in prices_df.columns]
 
@@ -269,10 +260,7 @@ class CrossRegionalArbitrageStrategy:
         logger.info("Calibration complete.")
 
     def detect_correlation_breakdown(
-        self,
-        price_1: pd.Series,
-        price_2: pd.Series,
-        rolling_window: int = 30
+        self, price_1: pd.Series, price_2: pd.Series, rolling_window: int = 30
     ) -> pd.Series:
         """
         Detect periods of correlation breakdown.
@@ -296,10 +284,7 @@ class CrossRegionalArbitrageStrategy:
         return breakdown
 
     def calculate_optimal_position_size(
-        self,
-        spread: float,
-        spread_std: float,
-        correlation: float
+        self, spread: float, spread_std: float, correlation: float
     ) -> float:
         """
         Calculate optimal position size using Kelly criterion.
@@ -342,9 +327,7 @@ class CrossRegionalArbitrageStrategy:
         return position_size
 
     def generate_signals(
-        self,
-        prices_df: pd.DataFrame,
-        transmission_flows: Optional[pd.DataFrame] = None
+        self, prices_df: pd.DataFrame, transmission_flows: Optional[pd.DataFrame] = None
     ) -> pd.DataFrame:
         """
         Generate trading signals for cross-regional arbitrage.
@@ -363,8 +346,8 @@ class CrossRegionalArbitrageStrategy:
         all_signals = []
 
         for region_1, region_2 in self.config.region_pairs:
-            price_col_1 = f'price_{region_1}'
-            price_col_2 = f'price_{region_2}'
+            price_col_1 = f"price_{region_1}"
+            price_col_2 = f"price_{region_2}"
 
             if price_col_1 not in prices_df.columns or price_col_2 not in prices_df.columns:
                 continue
@@ -386,73 +369,73 @@ class CrossRegionalArbitrageStrategy:
             breakdown = self.detect_correlation_breakdown(p1, p2)
 
             # Generate signals
-            df = pd.DataFrame({
-                'date': prices_df.index if isinstance(prices_df.index, pd.DatetimeIndex)
-                        else pd.RangeIndex(len(prices_df)),
-                'region_1': region_1,
-                'region_2': region_2,
-                'price_1': p1.values,
-                'price_2': p2.values,
-                'spread': spread.values,
-                'spread_z': spread_z.values,
-                'correlation_breakdown': breakdown.values
-            })
+            df = pd.DataFrame(
+                {
+                    "date": (
+                        prices_df.index
+                        if isinstance(prices_df.index, pd.DatetimeIndex)
+                        else pd.RangeIndex(len(prices_df))
+                    ),
+                    "region_1": region_1,
+                    "region_2": region_2,
+                    "price_1": p1.values,
+                    "price_2": p2.values,
+                    "spread": spread.values,
+                    "spread_z": spread_z.values,
+                    "correlation_breakdown": breakdown.values,
+                }
+            )
 
             # Signal logic
-            df['signal'] = 0
+            df["signal"] = 0
 
             # Entry conditions (accounting for transmission cost)
             adjusted_threshold = self.config.spread_entry_threshold + self.config.transmission_cost
 
             # LONG spread (buy region_1, sell region_2) when spread is low
-            long_condition = (
-                (df['spread'] < -adjusted_threshold) &
-                (~df['correlation_breakdown'])
-            )
-            df.loc[long_condition, 'signal'] = 1
+            long_condition = (df["spread"] < -adjusted_threshold) & (~df["correlation_breakdown"])
+            df.loc[long_condition, "signal"] = 1
 
             # SHORT spread (sell region_1, buy region_2) when spread is high
-            short_condition = (
-                (df['spread'] > adjusted_threshold) &
-                (~df['correlation_breakdown'])
-            )
-            df.loc[short_condition, 'signal'] = -1
+            short_condition = (df["spread"] > adjusted_threshold) & (~df["correlation_breakdown"])
+            df.loc[short_condition, "signal"] = -1
 
             # Exit when spread normalizes
-            df['should_exit'] = df['spread'].abs() < self.config.spread_exit_threshold
+            df["should_exit"] = df["spread"].abs() < self.config.spread_exit_threshold
 
             # Position sizing
-            if self.config.position_sizing_method == 'fixed':
-                df['position_size'] = self.config.max_position_size
-            elif self.config.position_sizing_method == 'proportional':
-                df['position_size'] = df['spread'].abs() * 50  # Scale factor
-                df['position_size'] = df['position_size'].clip(upper=self.config.max_position_size)
-            elif self.config.position_sizing_method == 'optimal':
+            if self.config.position_sizing_method == "fixed":
+                df["position_size"] = self.config.max_position_size
+            elif self.config.position_sizing_method == "proportional":
+                df["position_size"] = df["spread"].abs() * 50  # Scale factor
+                df["position_size"] = df["position_size"].clip(upper=self.config.max_position_size)
+            elif self.config.position_sizing_method == "optimal":
                 # Calculate rolling correlation
                 rolling_corr = p1.rolling(30).corr(p2)
-                df['position_size'] = df.apply(
+                df["position_size"] = df.apply(
                     lambda row: self.calculate_optimal_position_size(
-                        row['spread'],
+                        row["spread"],
                         spread_std.loc[row.name] if row.name in spread_std.index else 1.0,
-                        rolling_corr.loc[row.name] if row.name in rolling_corr.index else 0.8
+                        rolling_corr.loc[row.name] if row.name in rolling_corr.index else 0.8,
                     ),
-                    axis=1
+                    axis=1,
                 )
 
             # Apply signal to position size
-            df['position_size'] = df['position_size'] * df['signal'].abs()
+            df["position_size"] = df["position_size"] * df["signal"].abs()
 
             # Transaction costs (both legs)
-            df['transaction_cost'] = (
-                df['position_size'] *
-                (df['price_1'] + df['price_2']) / 2 *
-                (self.config.transaction_cost_bps / 10000) *
-                2  # Two legs
+            df["transaction_cost"] = (
+                df["position_size"]
+                * (df["price_1"] + df["price_2"])
+                / 2
+                * (self.config.transaction_cost_bps / 10000)
+                * 2  # Two legs
             )
 
             # Transmission cost
-            df['transmission_cost'] = (
-                df['position_size'] * self.config.transmission_cost * df['signal'].abs()
+            df["transmission_cost"] = (
+                df["position_size"] * self.config.transmission_cost * df["signal"].abs()
             )
 
             all_signals.append(df)
@@ -469,10 +452,7 @@ class CrossRegionalArbitrageStrategy:
             logger.warning("No signals generated (missing price data)")
             return pd.DataFrame()
 
-    def calculate_performance_metrics(
-        self,
-        signals_df: pd.DataFrame
-    ) -> Dict[str, float]:
+    def calculate_performance_metrics(self, signals_df: pd.DataFrame) -> Dict[str, float]:
         """
         Calculate strategy performance metrics.
 
@@ -488,65 +468,62 @@ class CrossRegionalArbitrageStrategy:
         # Group by region pair
         results_by_pair = {}
 
-        for pair in signals_df.groupby(['region_1', 'region_2']):
+        for pair in signals_df.groupby(["region_1", "region_2"]):
             (region_1, region_2), df = pair
             pair_key = f"{region_1}_{region_2}"
 
             # Calculate PnL
             # When long spread: profit if spread increases
             # When short spread: profit if spread decreases
-            df['spread_change'] = df['spread'].diff()
-            df['gross_pnl'] = df['signal'].shift(1) * df['spread_change'] * df['position_size']
+            df["spread_change"] = df["spread"].diff()
+            df["gross_pnl"] = df["signal"].shift(1) * df["spread_change"] * df["position_size"]
 
             # Net PnL after costs
-            df['net_pnl'] = df['gross_pnl'] - df['transaction_cost'] - df['transmission_cost']
+            df["net_pnl"] = df["gross_pnl"] - df["transaction_cost"] - df["transmission_cost"]
 
             # Cumulative PnL
-            df['cumulative_pnl'] = df['net_pnl'].cumsum()
+            df["cumulative_pnl"] = df["net_pnl"].cumsum()
 
             # Metrics
-            total_pnl = df['net_pnl'].sum()
-            num_trades = (df['signal'].diff() != 0).sum()
+            total_pnl = df["net_pnl"].sum()
+            num_trades = (df["signal"].diff() != 0).sum()
 
             # Returns
-            capital_at_risk = df['position_size'] * (df['price_1'] + df['price_2']) / 2
-            returns = df['net_pnl'] / (capital_at_risk + 1)
+            capital_at_risk = df["position_size"] * (df["price_1"] + df["price_2"]) / 2
+            returns = df["net_pnl"] / (capital_at_risk + 1)
             returns = returns.replace([np.inf, -np.inf], 0)
 
             sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
 
             # Win rate
-            profitable_trades = (df['net_pnl'] > 0).sum()
+            profitable_trades = (df["net_pnl"] > 0).sum()
             win_rate = profitable_trades / num_trades if num_trades > 0 else 0
 
             # Maximum drawdown
-            cumulative = df['cumulative_pnl']
+            cumulative = df["cumulative_pnl"]
             running_max = cumulative.expanding().max()
             drawdown = cumulative - running_max
             max_drawdown = drawdown.min()
 
             results_by_pair[pair_key] = {
-                'total_pnl': total_pnl,
-                'num_trades': num_trades,
-                'sharpe_ratio': sharpe,
-                'win_rate': win_rate,
-                'max_drawdown': max_drawdown,
-                'avg_pnl_per_trade': total_pnl / num_trades if num_trades > 0 else 0
+                "total_pnl": total_pnl,
+                "num_trades": num_trades,
+                "sharpe_ratio": sharpe,
+                "win_rate": win_rate,
+                "max_drawdown": max_drawdown,
+                "avg_pnl_per_trade": total_pnl / num_trades if num_trades > 0 else 0,
             }
 
         # Aggregate across all pairs
         aggregate_metrics = {
-            'total_pnl': sum(m['total_pnl'] for m in results_by_pair.values()),
-            'num_trades': sum(m['num_trades'] for m in results_by_pair.values()),
-            'avg_sharpe': np.mean([m['sharpe_ratio'] for m in results_by_pair.values()]),
-            'avg_win_rate': np.mean([m['win_rate'] for m in results_by_pair.values()]),
-            'worst_drawdown': min(m['max_drawdown'] for m in results_by_pair.values())
+            "total_pnl": sum(m["total_pnl"] for m in results_by_pair.values()),
+            "num_trades": sum(m["num_trades"] for m in results_by_pair.values()),
+            "avg_sharpe": np.mean([m["sharpe_ratio"] for m in results_by_pair.values()]),
+            "avg_win_rate": np.mean([m["win_rate"] for m in results_by_pair.values()]),
+            "worst_drawdown": min(m["max_drawdown"] for m in results_by_pair.values()),
         }
 
-        return {
-            'aggregate': aggregate_metrics,
-            'by_pair': results_by_pair
-        }
+        return {"aggregate": aggregate_metrics, "by_pair": results_by_pair}
 
 
 if __name__ == "__main__":
@@ -555,7 +532,7 @@ if __name__ == "__main__":
 
     # Generate synthetic data
     np.random.seed(42)
-    dates = pd.date_range('2020-01-01', '2024-01-01', freq='D')
+    dates = pd.date_range("2020-01-01", "2024-01-01", freq="D")
     n = len(dates)
 
     # Cointegrated prices with spread
@@ -564,16 +541,13 @@ if __name__ == "__main__":
     price_DE = 48 + common_component + np.random.randn(n) * 2  # Slightly lower
     price_ES = 52 + common_component + np.random.randn(n) * 3  # Slightly higher
 
-    prices_df = pd.DataFrame({
-        'price_FR': price_FR,
-        'price_DE': price_DE,
-        'price_ES': price_ES
-    }, index=dates)
+    prices_df = pd.DataFrame(
+        {"price_FR": price_FR, "price_DE": price_DE, "price_ES": price_ES}, index=dates
+    )
 
     # Initialize and calibrate strategy
     config = CrossRegionalArbitrageConfig(
-        region_pairs=[('FR', 'DE'), ('FR', 'ES')],
-        spread_entry_threshold=3.0
+        region_pairs=[("FR", "DE"), ("FR", "ES")], spread_entry_threshold=3.0
     )
     strategy = CrossRegionalArbitrageStrategy(config)
     strategy.calibrate(prices_df)
@@ -584,20 +558,20 @@ if __name__ == "__main__":
     # Calculate performance
     metrics = strategy.calculate_performance_metrics(signals)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("CROSS-REGIONAL ARBITRAGE - PERFORMANCE METRICS")
-    print("="*60)
+    print("=" * 60)
 
-    if 'aggregate' in metrics:
+    if "aggregate" in metrics:
         print("\nAGGREGATE METRICS:")
-        for key, value in metrics['aggregate'].items():
+        for key, value in metrics["aggregate"].items():
             if isinstance(value, float):
                 print(f"{key:25s}: {value:12.4f}")
             else:
                 print(f"{key:25s}: {value}")
 
         print("\nBY REGION PAIR:")
-        for pair, pair_metrics in metrics['by_pair'].items():
+        for pair, pair_metrics in metrics["by_pair"].items():
             print(f"\n{pair}:")
             for key, value in pair_metrics.items():
                 if isinstance(value, float):

@@ -10,23 +10,22 @@ This module replaces multiple scattered scripts with a single, optimized pipelin
 All data is stored as CSV files in local directories.
 """
 
-import requests
-import pandas as pd
-from pathlib import Path
-from datetime import datetime, date
-import time
 import logging
-from typing import Literal, List, Optional
-from dotenv import load_dotenv
 import os
+import time
+from datetime import date, datetime
+from pathlib import Path
+from typing import List, Literal, Optional
+
+import pandas as pd
+import requests
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -132,16 +131,12 @@ class WeatherCollector:
             # Parse response
             df = pd.DataFrame(data[frequency])
             time_col = "time"
-            df["date" if frequency == "daily" else "datetime"] = pd.to_datetime(
-                df[time_col]
-            )
+            df["date" if frequency == "daily" else "datetime"] = pd.to_datetime(df[time_col])
             df["insee_region"] = insee_code
 
             # Return only relevant columns
             time_key = "date" if frequency == "daily" else "datetime"
-            vars_list = (
-                DAILY_WEATHER_VARS if frequency == "daily" else HOURLY_WEATHER_VARS
-            )
+            vars_list = DAILY_WEATHER_VARS if frequency == "daily" else HOURLY_WEATHER_VARS
 
             return df[[time_key, "insee_region"] + vars_list]
 
@@ -223,9 +218,7 @@ class WeatherCollector:
         # Combine and sort
         df_combined = pd.concat(all_data, ignore_index=True)
         time_col = "date" if frequency == "daily" or forecast else "datetime"
-        df_combined = df_combined.sort_values([time_col, "insee_region"]).reset_index(
-            drop=True
-        )
+        df_combined = df_combined.sort_values([time_col, "insee_region"]).reset_index(drop=True)
 
         logger.info(f"Collected {len(df_combined):,} weather records")
         return df_combined
@@ -240,9 +233,7 @@ class DataMerger:
     """Merge energy, weather, and market data."""
 
     @staticmethod
-    def merge_daily(
-        energy_path: Path, weather_path: Path, output_path: Path
-    ) -> pd.DataFrame:
+    def merge_daily(energy_path: Path, weather_path: Path, output_path: Path) -> pd.DataFrame:
         """
         Merge daily energy and weather data.
 
@@ -264,14 +255,10 @@ class DataMerger:
         df_weather["date"] = pd.to_datetime(df_weather["date"])
 
         # Merge on date + region
-        df_merged = pd.merge(
-            df_energy, df_weather, on=["date", "insee_region"], how="inner"
-        )
+        df_merged = pd.merge(df_energy, df_weather, on=["date", "insee_region"], how="inner")
 
         # Sort chronologically
-        df_merged = df_merged.sort_values(["date", "insee_region"]).reset_index(
-            drop=True
-        )
+        df_merged = df_merged.sort_values(["date", "insee_region"]).reset_index(drop=True)
 
         # Save
         df_merged.to_csv(output_path, index=False)
@@ -314,14 +301,10 @@ class DataMerger:
             df_weather = df_weather[df_weather["datetime"] <= cutoff]
 
         # Merge
-        df_merged = pd.merge(
-            df_energy, df_weather, on=["datetime", "insee_region"], how="inner"
-        )
+        df_merged = pd.merge(df_energy, df_weather, on=["datetime", "insee_region"], how="inner")
 
         # Sort
-        df_merged = df_merged.sort_values(["datetime", "insee_region"]).reset_index(
-            drop=True
-        )
+        df_merged = df_merged.sort_values(["datetime", "insee_region"]).reset_index(drop=True)
 
         # Save
         df_merged.to_csv(output_path, index=False)
@@ -386,9 +369,7 @@ def merge_all_data(frequency: Literal["daily", "hourly"] = "daily"):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Energy Trading Data Collection Pipeline"
-    )
+    parser = argparse.ArgumentParser(description="Energy Trading Data Collection Pipeline")
     parser.add_argument(
         "action",
         choices=["weather-historical", "weather-forecast", "merge"],
@@ -400,9 +381,7 @@ if __name__ == "__main__":
         default="daily",
         help="Data frequency",
     )
-    parser.add_argument(
-        "--forecast-days", type=int, default=7, help="Number of forecast days"
-    )
+    parser.add_argument("--forecast-days", type=int, default=7, help="Number of forecast days")
 
     args = parser.parse_args()
 

@@ -11,15 +11,16 @@ Usage:
     python data_market_prices.py --start_date 2020-01-01 --end_date 2024-12-31 --countries FR DE ES
 """
 
+import argparse
+import logging
 import os
 import sys
-import argparse
-from datetime import datetime, timedelta
-import pandas as pd
-from pathlib import Path
-from dotenv import load_dotenv
 import time
-import logging
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pandas as pd
+from dotenv import load_dotenv
 
 try:
     from entsoe import EntsoePandasClient
@@ -105,9 +106,7 @@ def fetch_day_ahead_prices(client, country_code, start_date, end_date):
 
     try:
         # Fetch day-ahead prices
-        prices = client.query_day_ahead_prices(
-            country_domain, start=start_date, end=end_date
-        )
+        prices = client.query_day_ahead_prices(country_domain, start=start_date, end=end_date)
 
         # Convert to DataFrame if Series
         if isinstance(prices, pd.Series):

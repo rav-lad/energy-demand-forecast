@@ -15,15 +15,16 @@ Usage:
     python data_fundamentals.py --start_date 2020-01-01 --end_date 2024-12-31 --country FR --data_type generation
 """
 
+import argparse
+import logging
 import os
 import sys
-import argparse
-from datetime import datetime
-import pandas as pd
-from pathlib import Path
-from dotenv import load_dotenv
 import time
-import logging
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+from dotenv import load_dotenv
 
 try:
     from entsoe import EntsoePandasClient
@@ -171,9 +172,7 @@ def fetch_load_data(client, country_code, start_date, end_date):
 
     try:
         # Fetch day-ahead load forecast
-        forecast_load = client.query_load_forecast(
-            country_domain, start=start_date, end=end_date
-        )
+        forecast_load = client.query_load_forecast(country_domain, start=start_date, end=end_date)
         results["forecast_load"] = forecast_load
         logger.info(f"Fetched forecast load: {len(forecast_load)} records")
     except Exception as e:
@@ -349,9 +348,7 @@ Data types: generation, load, cross_border, capacity, all
     )
 
     parser.add_argument("--start_date", type=str, default="2020-01-01")
-    parser.add_argument(
-        "--end_date", type=str, default=datetime.now().strftime("%Y-%m-%d")
-    )
+    parser.add_argument("--end_date", type=str, default=datetime.now().strftime("%Y-%m-%d"))
     parser.add_argument("--country", type=str, default="FR")
     parser.add_argument(
         "--data_type",
@@ -372,9 +369,7 @@ Data types: generation, load, cross_border, capacity, all
     logger.info("=" * 60)
 
     if args.data_type in ["generation", "all"]:
-        df = fetch_generation_by_type(
-            client, args.country, args.start_date, args.end_date
-        )
+        df = fetch_generation_by_type(client, args.country, args.start_date, args.end_date)
         save_data(df, f"generation_{args.country}.csv", args.output_dir)
 
         # Calculate renewable share
@@ -386,9 +381,7 @@ Data types: generation, load, cross_border, capacity, all
         save_data(df, f"load_{args.country}.csv", args.output_dir)
 
     if args.data_type in ["capacity", "all"]:
-        df = fetch_installed_capacity(
-            client, args.country, args.start_date, args.end_date
-        )
+        df = fetch_installed_capacity(client, args.country, args.start_date, args.end_date)
         save_data(df, f"capacity_{args.country}.csv", args.output_dir)
 
     if args.data_type == "cross_border":
@@ -399,9 +392,7 @@ Data types: generation, load, cross_border, capacity, all
         df = fetch_cross_border_flows(
             client, args.country_from, args.country_to, args.start_date, args.end_date
         )
-        save_data(
-            df, f"flow_{args.country_from}_{args.country_to}.csv", args.output_dir
-        )
+        save_data(df, f"flow_{args.country_from}_{args.country_to}.csv", args.output_dir)
 
     logger.info("=" * 60)
     logger.info("Data collection completed!")

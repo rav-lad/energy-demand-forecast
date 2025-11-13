@@ -5,12 +5,13 @@ This engine simulates trading strategies on historical data and calculates
 performance metrics.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-import logging
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +49,10 @@ class Position:
 
         if self.entry_trade.action == "BUY":
             # Long position: profit = (exit_price - entry_price) * quantity
-            return (
-                self.exit_trade.price - self.entry_trade.price
-            ) * self.entry_trade.quantity
+            return (self.exit_trade.price - self.entry_trade.price) * self.entry_trade.quantity
         else:
             # Short position: profit = (entry_price - exit_price) * quantity
-            return (
-                self.entry_trade.price - self.exit_trade.price
-            ) * self.entry_trade.quantity
+            return (self.entry_trade.price - self.exit_trade.price) * self.entry_trade.quantity
 
     @property
     def return_pct(self) -> float:
@@ -120,9 +117,7 @@ class BacktestEngine:
         self.winning_trades = 0
         self.losing_trades = 0
 
-        logger.info(
-            f"Backtest engine initialized with capital: {initial_capital:,.2f} EUR"
-        )
+        logger.info(f"Backtest engine initialized with capital: {initial_capital:,.2f} EUR")
 
     @property
     def open_positions(self) -> List[Position]:
@@ -157,15 +152,11 @@ class BacktestEngine:
 
         # Check max position size
         if quantity > self.max_position_size:
-            logger.debug(
-                f"Position size {quantity} exceeds maximum {self.max_position_size}"
-            )
+            logger.debug(f"Position size {quantity} exceeds maximum {self.max_position_size}")
             return False
 
         # Check available capital
-        required_capital = (
-            quantity * price * (1 + self.transaction_cost + self.slippage)
-        )
+        required_capital = quantity * price * (1 + self.transaction_cost + self.slippage)
         if required_capital > self.capital:
             logger.debug(
                 f"Insufficient capital: need {required_capital:,.2f}, have {self.capital:,.2f}"
@@ -197,9 +188,7 @@ class BacktestEngine:
         """
         # Apply slippage
         effective_price = (
-            price * (1 + self.slippage)
-            if action == "BUY"
-            else price * (1 - self.slippage)
+            price * (1 + self.slippage) if action == "BUY" else price * (1 - self.slippage)
         )
 
         # Check if trade is feasible
@@ -226,16 +215,12 @@ class BacktestEngine:
             # Open new position
             position = Position(entry_trade=trade)
             self.positions.append(position)
-            logger.debug(
-                f"Opened BUY position: {quantity} MWh @ {effective_price:.2f} EUR/MWh"
-            )
+            logger.debug(f"Opened BUY position: {quantity} MWh @ {effective_price:.2f} EUR/MWh")
 
         else:  # SELL
             self.capital += transaction_value - costs
             # Close matching open position (FIFO)
-            open_buy_positions = [
-                p for p in self.open_positions if p.entry_trade.action == "BUY"
-            ]
+            open_buy_positions = [p for p in self.open_positions if p.entry_trade.action == "BUY"]
             if open_buy_positions:
                 position = open_buy_positions[0]
                 position.exit_trade = trade
@@ -299,9 +284,7 @@ class BacktestEngine:
             current_equity = self.capital
             for pos in self.open_positions:
                 # Mark-to-market for open positions
-                unrealized_pnl = (
-                    price - pos.entry_trade.price
-                ) * pos.entry_trade.quantity
+                unrealized_pnl = (price - pos.entry_trade.price) * pos.entry_trade.quantity
                 current_equity += pos.entry_trade.value + unrealized_pnl
 
             equity.append(current_equity)
@@ -309,9 +292,7 @@ class BacktestEngine:
         # Store equity curve
         self.equity_curve = pd.Series(equity, index=data.index)
         self.total_return = (
-            (self.equity_curve.iloc[-1] - self.initial_capital)
-            / self.initial_capital
-            * 100
+            (self.equity_curve.iloc[-1] - self.initial_capital) / self.initial_capital * 100
         )
 
         logger.info(
@@ -338,9 +319,7 @@ class BacktestEngine:
 
         # Win rate
         win_rate = (
-            self.winning_trades / len(self.closed_positions) * 100
-            if self.closed_positions
-            else 0
+            self.winning_trades / len(self.closed_positions) * 100 if self.closed_positions else 0
         )
 
         # Profit factor
@@ -349,9 +328,7 @@ class BacktestEngine:
         profit_factor = gross_profit / gross_loss if gross_loss > 0 else np.inf
 
         # Sharpe ratio (assuming 252 trading days per year)
-        sharpe_ratio = (
-            returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
-        )
+        sharpe_ratio = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
 
         # Sortino ratio (downside deviation)
         downside_returns = returns[returns < 0]
@@ -445,9 +422,7 @@ class BacktestEngine:
         print(f"  Avg Trade PnL:       {metrics['avg_trade_pnl']:>15,.2f} EUR")
         print(f"  Avg Win:             {metrics['avg_win']:>15,.2f} EUR")
         print(f"  Avg Loss:            {metrics['avg_loss']:>15,.2f} EUR")
-        print(
-            f"  Avg Duration:        {metrics['avg_trade_duration_hours']:>15.1f} hours"
-        )
+        print(f"  Avg Duration:        {metrics['avg_trade_duration_hours']:>15.1f} hours")
 
         print("\nGross Figures:")
         print(f"  Gross Profit:        {metrics['gross_profit']:>15,.2f} EUR")

@@ -8,17 +8,18 @@ Features:
 - Integration with MLflow
 """
 
-import optuna
-from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import cross_val_score, TimeSeriesSplit
-from sklearn.metrics import mean_squared_error, r2_score
-from typing import Dict, Any, Callable, Optional, List
 import logging
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
 import mlflow
+import numpy as np
+import optuna
+import pandas as pd
+from optuna.pruners import MedianPruner
+from optuna.samplers import TPESampler
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import TimeSeriesSplit, cross_val_score
 
 logger = logging.getLogger(__name__)
 
@@ -100,17 +101,15 @@ class OptunaHyperparameterTuner:
         Returns:
             Best hyperparameters
         """
-        from xgboost import XGBRegressor
         from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
 
         def objective(trial):
             # Suggest hyperparameters
             params = {
                 "n_estimators": trial.suggest_int("n_estimators", 50, 500),
                 "max_depth": trial.suggest_int("max_depth", 3, 10),
-                "learning_rate": trial.suggest_float(
-                    "learning_rate", 0.01, 0.3, log=True
-                ),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
                 "subsample": trial.suggest_float("subsample", 0.6, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
                 "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
@@ -182,9 +181,7 @@ class OptunaHyperparameterTuner:
             params = {
                 "n_estimators": trial.suggest_int("n_estimators", 50, 500),
                 "max_depth": trial.suggest_int("max_depth", 3, 12),
-                "learning_rate": trial.suggest_float(
-                    "learning_rate", 0.01, 0.3, log=True
-                ),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
                 "num_leaves": trial.suggest_int("num_leaves", 20, 200),
                 "subsample": trial.suggest_float("subsample", 0.6, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
@@ -248,9 +245,7 @@ class OptunaHyperparameterTuner:
             # Suggest hyperparameters
             params = {
                 "alpha": trial.suggest_float("alpha", 0.001, 100.0, log=True),
-                "solver": trial.suggest_categorical(
-                    "solver", ["auto", "svd", "cholesky", "lsqr"]
-                ),
+                "solver": trial.suggest_categorical("solver", ["auto", "svd", "cholesky", "lsqr"]),
                 "random_state": 42,
             }
 
@@ -380,17 +375,16 @@ class MultiObjectiveOptimizer:
             y_val: Validation targets
             n_trials: Number of trials
         """
-        from xgboost import XGBRegressor
-        from sklearn.multioutput import MultiOutputRegressor
         import time
+
+        from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
 
         def objective(trial):
             params = {
                 "n_estimators": trial.suggest_int("n_estimators", 50, 300),
                 "max_depth": trial.suggest_int("max_depth", 3, 10),
-                "learning_rate": trial.suggest_float(
-                    "learning_rate", 0.01, 0.3, log=True
-                ),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
             }
 
             model = MultiOutputRegressor(XGBRegressor(**params, random_state=42))

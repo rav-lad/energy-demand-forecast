@@ -8,25 +8,25 @@ Endpoints:
 - GET /metrics: Prometheus metrics
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+import logging
+import pickle
+import time
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-import pickle
-from pathlib import Path
-import logging
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.responses import JSONResponse, Response
 from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
-    generate_latest,
     CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
 )
-from fastapi.responses import Response
-import time
+from pydantic import BaseModel, Field, field_validator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,12 +40,8 @@ app = FastAPI(
 )
 
 # Prometheus metrics
-REQUEST_COUNT = Counter(
-    "api_requests_total", "Total API requests", ["endpoint", "method"]
-)
-REQUEST_LATENCY = Histogram(
-    "api_request_latency_seconds", "Request latency", ["endpoint"]
-)
+REQUEST_COUNT = Counter("api_requests_total", "Total API requests", ["endpoint", "method"])
+REQUEST_LATENCY = Histogram("api_request_latency_seconds", "Request latency", ["endpoint"])
 PREDICTION_COUNT = Counter("predictions_total", "Total predictions made", ["model"])
 MODEL_LOAD_TIME = Gauge("model_load_time_seconds", "Time to load model", ["model"])
 ACTIVE_MODELS = Gauge("active_models", "Number of loaded models")
@@ -59,19 +55,11 @@ ACTIVE_MODELS = Gauge("active_models", "Number of loaded models")
 class WeatherInput(BaseModel):
     """Weather features for prediction."""
 
-    temperature_2m_max: float = Field(
-        ..., ge=-50, le=50, description="Max temperature in °C"
-    )
-    temperature_2m_min: float = Field(
-        ..., ge=-50, le=50, description="Min temperature in °C"
-    )
+    temperature_2m_max: float = Field(..., ge=-50, le=50, description="Max temperature in °C")
+    temperature_2m_min: float = Field(..., ge=-50, le=50, description="Min temperature in °C")
     precipitation_sum: float = Field(..., ge=0, description="Precipitation sum in mm")
-    wind_speed_10m_max: float = Field(
-        ..., ge=0, le=200, description="Max wind speed in km/h"
-    )
-    shortwave_radiation_sum: float = Field(
-        ..., ge=0, description="Solar radiation in Wh/m²"
-    )
+    wind_speed_10m_max: float = Field(..., ge=0, le=200, description="Max wind speed in km/h")
+    shortwave_radiation_sum: float = Field(..., ge=0, description="Solar radiation in Wh/m²")
 
     @field_validator("temperature_2m_min")
     @classmethod
@@ -96,9 +84,7 @@ class EnergyPrediction(BaseModel):
     """Energy demand prediction result."""
 
     date: date
-    electricity_mw: float = Field(
-        ..., description="Predicted electricity consumption in MW"
-    )
+    electricity_mw: float = Field(..., description="Predicted electricity consumption in MW")
     gas_mw: float = Field(..., description="Predicted gas consumption in MW")
     model: str
     confidence: Optional[Dict[str, Any]] = None
@@ -309,9 +295,7 @@ async def predict(request: PredictionRequest):
         features["temperature_2m_mean"] = (
             features["temperature_2m_max"] + features["temperature_2m_min"]
         ) / 2
-        features["temp_range"] = (
-            features["temperature_2m_max"] - features["temperature_2m_min"]
-        )
+        features["temp_range"] = features["temperature_2m_max"] - features["temperature_2m_min"]
 
         # Make prediction
         prediction = model.predict(features.values)

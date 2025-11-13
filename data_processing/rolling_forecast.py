@@ -1,7 +1,16 @@
-import pandas as pd
-import joblib
+"""Rolling forecast generation for LightGBM quantile models.
+
+This module implements a rolling window forecasting approach where predictions
+are made iteratively, using previously predicted values as features for
+subsequent predictions when lags are enabled.
+"""
+
 import json
 from pathlib import Path
+
+import joblib
+import pandas as pd
+
 from data_processing.transformation import transform_lightgbm_quantile
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -10,6 +19,16 @@ MODIFIED_DIR = BASE_DIR / "data" / "modified_data"
 
 
 def rolling_forecast_lightgbm(freq="daily", lags="with"):
+    """Generate rolling forecasts using trained LightGBM quantile models.
+
+    This function performs rolling window predictions where each prediction
+    uses historical data up to that point. When lags are enabled, predicted
+    values replace actual values in the feature set for subsequent predictions.
+
+    Args:
+        freq: Data frequency, either "daily" or "hourly"
+        lags: Whether to use lag features, either "with" or "without"
+    """
     suffix = "withlags" if lags == "with" else "withoutlags"
 
     # Load train and test sets
@@ -43,9 +62,7 @@ def rolling_forecast_lightgbm(freq="daily", lags="with"):
         df_today_trans = df_trans[df_trans["date"] == current_date]
 
         # Make predictions by region
-        regions_today = df_test[df_test["date"] == current_date][
-            "insee_region"
-        ].unique()
+        regions_today = df_test[df_test["date"] == current_date]["insee_region"].unique()
         for region in regions_today:
             row = df_today_trans[df_today_trans["insee_region"] == region]
             if row.empty:
