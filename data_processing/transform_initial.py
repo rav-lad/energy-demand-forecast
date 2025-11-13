@@ -1,9 +1,15 @@
-# transform_initial.py
-import pandas as pd
-from pathlib import Path
-import sys
+"""Initial data transformation script for training data.
 
-# Compute BASE_DIR = project root directory (contains "data" and "data_processing")
+This script applies transformation pipeline to training data and fits/saves
+the scaler for use in model training and prediction.
+"""
+
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+# Compute BASE_DIR = project root directory
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data" / "modified_data"
 

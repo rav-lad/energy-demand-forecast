@@ -9,16 +9,17 @@ Features:
 - Real-time monitoring
 """
 
-import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
-from pathlib import Path
 import pickle
 import sys
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import streamlit as st
+from plotly.subplots import make_subplots
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -57,16 +58,9 @@ st.markdown(
 
 
 @st.cache_data
-def load_predictions(
-    model_name: str = "xgboost", frequency: str = "daily"
-) -> pd.DataFrame:
+def load_predictions(model_name: str = "xgboost", frequency: str = "daily") -> pd.DataFrame:
     """Load model predictions."""
-    pred_path = (
-        project_root
-        / "outputs"
-        / "reports"
-        / f"{model_name}_predictions_{frequency}.csv"
-    )
+    pred_path = project_root / "outputs" / "reports" / f"{model_name}_predictions_{frequency}.csv"
 
     if pred_path.exists():
         df = pd.read_csv(pred_path, parse_dates=["date"])
@@ -109,9 +103,7 @@ def load_benchmark_results() -> pd.DataFrame:
 @st.cache_data
 def load_market_prices() -> pd.DataFrame:
     """Load market price data."""
-    price_path = (
-        project_root / "data" / "raw_data" / "market_prices" / "day_ahead_prices_FR.csv"
-    )
+    price_path = project_root / "data" / "raw_data" / "market_prices" / "day_ahead_prices_FR.csv"
 
     if price_path.exists():
         df = pd.read_csv(price_path, parse_dates=["datetime"])
@@ -129,7 +121,7 @@ def load_market_prices() -> pd.DataFrame:
 
 def calculate_metrics(actual: np.ndarray, pred: np.ndarray) -> dict:
     """Calculate prediction metrics."""
-    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+    from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
@@ -226,9 +218,7 @@ if page == "📊 Overview":
             )
         )
 
-        fig.update_layout(
-            barmode="group", xaxis_title="Model", yaxis_title="RMSE (MW)", height=400
-        )
+        fig.update_layout(barmode="group", xaxis_title="Model", yaxis_title="RMSE (MW)", height=400)
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -251,9 +241,9 @@ if page == "📊 Overview":
     # Performance table
     st.markdown("### Detailed Model Comparison")
     st.dataframe(
-        benchmark_df.style.highlight_max(
-            subset=["r2_elec"], color="lightgreen"
-        ).highlight_min(subset=["rmse_elec", "rmse_gaz"], color="lightgreen"),
+        benchmark_df.style.highlight_max(subset=["r2_elec"], color="lightgreen").highlight_min(
+            subset=["rmse_elec", "rmse_gaz"], color="lightgreen"
+        ),
         use_container_width=True,
     )
 
@@ -277,10 +267,7 @@ elif page == "🎯 Predictions":
         predictions_df = predictions_df[mask]
 
     # Calculate metrics
-    if (
-        "actual_elec" in predictions_df.columns
-        and "pred_elec" in predictions_df.columns
-    ):
+    if "actual_elec" in predictions_df.columns and "pred_elec" in predictions_df.columns:
         metrics_elec = calculate_metrics(
             predictions_df["actual_elec"].values, predictions_df["pred_elec"].values
         )
@@ -523,9 +510,7 @@ elif page == "📈 Backtests":
     returns = np.random.randn(len(dates)) * 0.01
     equity_curve = initial_capital * (1 + returns).cumprod()
 
-    backtest_df = pd.DataFrame(
-        {"date": dates, "equity": equity_curve, "returns": returns * 100}
-    )
+    backtest_df = pd.DataFrame({"date": dates, "equity": equity_curve, "returns": returns * 100})
 
     # Backtest metrics
     total_return = ((equity_curve[-1] - initial_capital) / initial_capital) * 100
@@ -572,9 +557,7 @@ elif page == "📈 Backtests":
         st.markdown("### Daily Returns Distribution")
 
         fig = go.Figure(data=[go.Histogram(x=backtest_df["returns"], nbinsx=50)])
-        fig.update_layout(
-            xaxis_title="Daily Return (%)", yaxis_title="Frequency", height=400
-        )
+        fig.update_layout(xaxis_title="Daily Return (%)", yaxis_title="Frequency", height=400)
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -592,9 +575,7 @@ elif page == "📈 Backtests":
             )
         )
 
-        fig.update_layout(
-            xaxis_title="Date", yaxis_title="Cumulative Return (%)", height=400
-        )
+        fig.update_layout(xaxis_title="Date", yaxis_title="Cumulative Return (%)", height=400)
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -618,8 +599,7 @@ elif page == "🔬 Model Comparison":
     ) / (metrics_normalized["rmse_elec"].max() - metrics_normalized["rmse_elec"].min())
     metrics_normalized["r2_norm"] = metrics_normalized["r2_elec"]
     metrics_normalized["speed_norm"] = 1 - (
-        metrics_normalized["training_time_sec"]
-        - metrics_normalized["training_time_sec"].min()
+        metrics_normalized["training_time_sec"] - metrics_normalized["training_time_sec"].min()
     ) / (
         metrics_normalized["training_time_sec"].max()
         - metrics_normalized["training_time_sec"].min()

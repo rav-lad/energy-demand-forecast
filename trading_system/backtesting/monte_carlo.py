@@ -42,15 +42,16 @@ Date: 2025-11-12
 """
 
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Callable
-from datetime import datetime
-import pandas as pd
-import numpy as np
-from scipy import stats
 import warnings
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Callable, Dict, List, Optional, Tuple
 
-from .backtesting_engine import BacktestingEngine, BacktestConfig
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+from .backtesting_engine import BacktestConfig, BacktestingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +61,14 @@ class MonteCarloConfig:
     """Configuration for Monte Carlo simulation."""
 
     # Simulation settings
-    n_simulations: int = 1000      # Number of Monte Carlo runs
+    n_simulations: int = 1000  # Number of Monte Carlo runs
     confidence_level: float = 0.95  # For confidence intervals
 
     # Resampling method
-    method: str = "bootstrap"  # "bootstrap", "parametric", "block_bootstrap", "parameter_perturbation"
-    block_size: int = 20       # For block bootstrap (days)
+    method: str = (
+        "bootstrap"  # "bootstrap", "parametric", "block_bootstrap", "parameter_perturbation"
+    )
+    block_size: int = 20  # For block bootstrap (days)
 
     # Parameter perturbation
     param_noise_pct: float = 0.1  # ±10% parameter variation
@@ -191,9 +194,14 @@ class MonteCarloSimulator:
         logger.info(f"  Simulations: {config.n_simulations}")
         logger.info(f"  Confidence: {config.confidence_level*100:.0f}%")
 
-    def run(self, original_returns: pd.Series, strategy_func: Callable,
-            price_data: pd.DataFrame, params: Dict,
-            original_backtest_results: Optional[Dict] = None) -> MonteCarloResults:
+    def run(
+        self,
+        original_returns: pd.Series,
+        strategy_func: Callable,
+        price_data: pd.DataFrame,
+        params: Dict,
+        original_backtest_results: Optional[Dict] = None,
+    ) -> MonteCarloResults:
         """
         Run Monte Carlo simulation.
 
@@ -207,9 +215,9 @@ class MonteCarloSimulator:
         Returns:
             results: MonteCarloResults object with simulation results
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("Starting Monte Carlo Simulation")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         method_func = self._get_method_func()
 
@@ -228,14 +236,12 @@ class MonteCarloSimulator:
                 synthetic_data = method_func(original_returns, price_data, params)
 
                 # Run backtest on synthetic data
-                metrics = self._run_synthetic_backtest(
-                    synthetic_data, strategy_func, params
-                )
+                metrics = self._run_synthetic_backtest(synthetic_data, strategy_func, params)
 
-                sim_returns.append(metrics['total_return'])
-                sim_sharpe.append(metrics['sharpe_ratio'])
-                sim_drawdowns.append(metrics['max_drawdown'])
-                sim_win_rates.append(metrics.get('win_rate', 0))
+                sim_returns.append(metrics["total_return"])
+                sim_sharpe.append(metrics["sharpe_ratio"])
+                sim_drawdowns.append(metrics["max_drawdown"])
+                sim_win_rates.append(metrics.get("win_rate", 0))
 
             except Exception as e:
                 logger.warning(f"Simulation {i} failed: {str(e)}")
@@ -249,8 +255,7 @@ class MonteCarloSimulator:
 
         # Calculate statistics
         results = self._calculate_statistics(
-            sim_returns, sim_sharpe, sim_drawdowns, sim_win_rates,
-            original_backtest_results
+            sim_returns, sim_sharpe, sim_drawdowns, sim_win_rates, original_backtest_results
         )
 
         logger.info("\n" + str(results))
@@ -260,10 +265,10 @@ class MonteCarloSimulator:
     def _get_method_func(self) -> Callable:
         """Get simulation method function."""
         methods = {
-            'bootstrap': self._bootstrap_resample,
-            'parametric': self._parametric_simulation,
-            'block_bootstrap': self._block_bootstrap,
-            'parameter_perturbation': self._parameter_perturbation
+            "bootstrap": self._bootstrap_resample,
+            "parametric": self._parametric_simulation,
+            "block_bootstrap": self._block_bootstrap,
+            "parameter_perturbation": self._parameter_perturbation,
         }
 
         if self.config.method not in methods:
@@ -271,8 +276,9 @@ class MonteCarloSimulator:
 
         return methods[self.config.method]
 
-    def _bootstrap_resample(self, returns: pd.Series, price_data: pd.DataFrame,
-                           params: Dict) -> pd.DataFrame:
+    def _bootstrap_resample(
+        self, returns: pd.Series, price_data: pd.DataFrame, params: Dict
+    ) -> pd.DataFrame:
         """
         Bootstrap resampling: randomly resample returns with replacement.
 
@@ -291,18 +297,19 @@ class MonteCarloSimulator:
         resampled_returns = returns.iloc[resampled_indices].values
 
         # Reconstruct prices from returns
-        initial_price = price_data.iloc[0]['price'] if 'price' in price_data.columns else price_data.iloc[0][0]
+        initial_price = (
+            price_data.iloc[0]["price"] if "price" in price_data.columns else price_data.iloc[0][0]
+        )
         synthetic_prices = initial_price * np.cumprod(1 + resampled_returns)
 
         # Create synthetic DataFrame
-        synthetic_data = pd.DataFrame({
-            'price': synthetic_prices
-        }, index=price_data.index[:n])
+        synthetic_data = pd.DataFrame({"price": synthetic_prices}, index=price_data.index[:n])
 
         return synthetic_data
 
-    def _block_bootstrap(self, returns: pd.Series, price_data: pd.DataFrame,
-                        params: Dict) -> pd.DataFrame:
+    def _block_bootstrap(
+        self, returns: pd.Series, price_data: pd.DataFrame, params: Dict
+    ) -> pd.DataFrame:
         """
         Block bootstrap: resample blocks of consecutive returns.
 
@@ -327,24 +334,25 @@ class MonteCarloSimulator:
         for _ in range(n_blocks):
             # Random starting point
             start_idx = np.random.randint(0, n - block_size + 1)
-            block = returns.iloc[start_idx:start_idx + block_size].values
+            block = returns.iloc[start_idx : start_idx + block_size].values
             resampled_returns.extend(block)
 
         # Trim to original length
         resampled_returns = np.array(resampled_returns[:n])
 
         # Reconstruct prices
-        initial_price = price_data.iloc[0]['price'] if 'price' in price_data.columns else price_data.iloc[0][0]
+        initial_price = (
+            price_data.iloc[0]["price"] if "price" in price_data.columns else price_data.iloc[0][0]
+        )
         synthetic_prices = initial_price * np.cumprod(1 + resampled_returns)
 
-        synthetic_data = pd.DataFrame({
-            'price': synthetic_prices
-        }, index=price_data.index[:n])
+        synthetic_data = pd.DataFrame({"price": synthetic_prices}, index=price_data.index[:n])
 
         return synthetic_data
 
-    def _parametric_simulation(self, returns: pd.Series, price_data: pd.DataFrame,
-                               params: Dict) -> pd.DataFrame:
+    def _parametric_simulation(
+        self, returns: pd.Series, price_data: pd.DataFrame, params: Dict
+    ) -> pd.DataFrame:
         """
         Parametric simulation: fit returns to distribution and simulate.
 
@@ -366,17 +374,18 @@ class MonteCarloSimulator:
         synthetic_returns = stats.t.rvs(df_fit, loc=loc_fit, scale=scale_fit, size=n)
 
         # Reconstruct prices
-        initial_price = price_data.iloc[0]['price'] if 'price' in price_data.columns else price_data.iloc[0][0]
+        initial_price = (
+            price_data.iloc[0]["price"] if "price" in price_data.columns else price_data.iloc[0][0]
+        )
         synthetic_prices = initial_price * np.cumprod(1 + synthetic_returns)
 
-        synthetic_data = pd.DataFrame({
-            'price': synthetic_prices
-        }, index=price_data.index[:n])
+        synthetic_data = pd.DataFrame({"price": synthetic_prices}, index=price_data.index[:n])
 
         return synthetic_data
 
-    def _parameter_perturbation(self, returns: pd.Series, price_data: pd.DataFrame,
-                                params: Dict) -> Tuple[pd.DataFrame, Dict]:
+    def _parameter_perturbation(
+        self, returns: pd.Series, price_data: pd.DataFrame, params: Dict
+    ) -> Tuple[pd.DataFrame, Dict]:
         """
         Parameter perturbation: use original data but perturb strategy parameters.
 
@@ -393,8 +402,7 @@ class MonteCarloSimulator:
         perturbed_params = {}
         for key, value in params.items():
             if isinstance(value, (int, float)):
-                noise = np.random.uniform(-self.config.param_noise_pct,
-                                         self.config.param_noise_pct)
+                noise = np.random.uniform(-self.config.param_noise_pct, self.config.param_noise_pct)
                 perturbed_value = value * (1 + noise)
 
                 # Keep integers as integers
@@ -409,8 +417,9 @@ class MonteCarloSimulator:
         # Note: Need to modify _run_synthetic_backtest to handle this
         return price_data, perturbed_params
 
-    def _run_synthetic_backtest(self, synthetic_data: pd.DataFrame,
-                                strategy_func: Callable, params: Dict) -> Dict:
+    def _run_synthetic_backtest(
+        self, synthetic_data: pd.DataFrame, strategy_func: Callable, params: Dict
+    ) -> Dict:
         """
         Run backtest on synthetic data.
 
@@ -434,14 +443,19 @@ class MonteCarloSimulator:
 
         # Run backtest
         engine = BacktestingEngine(self.config.backtest_config)
-        engine.run(data, signals, symbol='ENERGY')
+        engine.run(data, signals, symbol="ENERGY")
         metrics = engine.get_performance_metrics()
 
         return metrics
 
-    def _calculate_statistics(self, returns: np.ndarray, sharpe: np.ndarray,
-                             drawdowns: np.ndarray, win_rates: np.ndarray,
-                             original_results: Optional[Dict]) -> MonteCarloResults:
+    def _calculate_statistics(
+        self,
+        returns: np.ndarray,
+        sharpe: np.ndarray,
+        drawdowns: np.ndarray,
+        win_rates: np.ndarray,
+        original_results: Optional[Dict],
+    ) -> MonteCarloResults:
         """
         Calculate statistical summary of simulation results.
 
@@ -485,8 +499,8 @@ class MonteCarloSimulator:
 
         # Original results comparison
         if original_results:
-            original_return = original_results.get('total_return', 0)
-            original_sharpe = original_results.get('sharpe_ratio', 0)
+            original_return = original_results.get("total_return", 0)
+            original_sharpe = original_results.get("sharpe_ratio", 0)
 
             # Percentile rankings
             return_percentile = stats.percentileofscore(returns, original_return)
@@ -522,7 +536,7 @@ class MonteCarloSimulator:
             original_return=original_return,
             original_sharpe=original_sharpe,
             return_percentile=return_percentile,
-            sharpe_percentile=sharpe_percentile
+            sharpe_percentile=sharpe_percentile,
         )
 
         return results
@@ -538,6 +552,7 @@ class MonteCarloSimulator:
         try:
             import matplotlib.pyplot as plt
             import seaborn as sns
+
             sns.set_style("whitegrid")
         except ImportError:
             logger.warning("matplotlib/seaborn not available, skipping plots")
@@ -547,48 +562,79 @@ class MonteCarloSimulator:
 
         # Plot 1: Return distribution
         ax = axes[0, 0]
-        ax.hist(results.returns * 100, bins=50, alpha=0.7, edgecolor='black')
-        ax.axvline(results.mean_return * 100, color='r', linestyle='--',
-                   linewidth=2, label=f'Mean: {results.mean_return:.2%}')
-        ax.axvline(results.original_return * 100, color='g', linestyle='-',
-                   linewidth=2, label=f'Original: {results.original_return:.2%}')
-        ax.axvline(results.ci_lower * 100, color='orange', linestyle=':',
-                   label=f'{int(self.config.confidence_level*100)}% CI')
-        ax.axvline(results.ci_upper * 100, color='orange', linestyle=':')
-        ax.set_xlabel('Total Return (%)')
-        ax.set_ylabel('Frequency')
-        ax.set_title(f'Return Distribution ({results.n_simulations} simulations)')
+        ax.hist(results.returns * 100, bins=50, alpha=0.7, edgecolor="black")
+        ax.axvline(
+            results.mean_return * 100,
+            color="r",
+            linestyle="--",
+            linewidth=2,
+            label=f"Mean: {results.mean_return:.2%}",
+        )
+        ax.axvline(
+            results.original_return * 100,
+            color="g",
+            linestyle="-",
+            linewidth=2,
+            label=f"Original: {results.original_return:.2%}",
+        )
+        ax.axvline(
+            results.ci_lower * 100,
+            color="orange",
+            linestyle=":",
+            label=f"{int(self.config.confidence_level*100)}% CI",
+        )
+        ax.axvline(results.ci_upper * 100, color="orange", linestyle=":")
+        ax.set_xlabel("Total Return (%)")
+        ax.set_ylabel("Frequency")
+        ax.set_title(f"Return Distribution ({results.n_simulations} simulations)")
         ax.legend()
         ax.grid(True, alpha=0.3)
 
         # Plot 2: Sharpe ratio distribution
         ax = axes[0, 1]
-        ax.hist(results.sharpe_ratios, bins=50, alpha=0.7, edgecolor='black')
-        ax.axvline(results.mean_sharpe, color='r', linestyle='--',
-                   linewidth=2, label=f'Mean: {results.mean_sharpe:.3f}')
-        ax.axvline(results.original_sharpe, color='g', linestyle='-',
-                   linewidth=2, label=f'Original: {results.original_sharpe:.3f}')
-        ax.axvline(results.ci_sharpe_lower, color='orange', linestyle=':',
-                   label=f'{int(self.config.confidence_level*100)}% CI')
-        ax.axvline(results.ci_sharpe_upper, color='orange', linestyle=':')
-        ax.axvline(1.0, color='purple', linestyle='--', alpha=0.5,
-                   label='Sharpe = 1.0')
-        ax.set_xlabel('Sharpe Ratio')
-        ax.set_ylabel('Frequency')
-        ax.set_title('Sharpe Ratio Distribution')
+        ax.hist(results.sharpe_ratios, bins=50, alpha=0.7, edgecolor="black")
+        ax.axvline(
+            results.mean_sharpe,
+            color="r",
+            linestyle="--",
+            linewidth=2,
+            label=f"Mean: {results.mean_sharpe:.3f}",
+        )
+        ax.axvline(
+            results.original_sharpe,
+            color="g",
+            linestyle="-",
+            linewidth=2,
+            label=f"Original: {results.original_sharpe:.3f}",
+        )
+        ax.axvline(
+            results.ci_sharpe_lower,
+            color="orange",
+            linestyle=":",
+            label=f"{int(self.config.confidence_level*100)}% CI",
+        )
+        ax.axvline(results.ci_sharpe_upper, color="orange", linestyle=":")
+        ax.axvline(1.0, color="purple", linestyle="--", alpha=0.5, label="Sharpe = 1.0")
+        ax.set_xlabel("Sharpe Ratio")
+        ax.set_ylabel("Frequency")
+        ax.set_title("Sharpe Ratio Distribution")
         ax.legend()
         ax.grid(True, alpha=0.3)
 
         # Plot 3: Drawdown distribution
         ax = axes[1, 0]
-        ax.hist(results.max_drawdowns * 100, bins=50, alpha=0.7, edgecolor='black')
-        ax.axvline(results.mean_drawdown * 100, color='r', linestyle='--',
-                   linewidth=2, label=f'Mean: {results.mean_drawdown:.2%}')
-        ax.axvline(20, color='purple', linestyle='--', alpha=0.5,
-                   label='20% threshold')
-        ax.set_xlabel('Maximum Drawdown (%)')
-        ax.set_ylabel('Frequency')
-        ax.set_title('Maximum Drawdown Distribution')
+        ax.hist(results.max_drawdowns * 100, bins=50, alpha=0.7, edgecolor="black")
+        ax.axvline(
+            results.mean_drawdown * 100,
+            color="r",
+            linestyle="--",
+            linewidth=2,
+            label=f"Mean: {results.mean_drawdown:.2%}",
+        )
+        ax.axvline(20, color="purple", linestyle="--", alpha=0.5, label="20% threshold")
+        ax.set_xlabel("Maximum Drawdown (%)")
+        ax.set_ylabel("Frequency")
+        ax.set_title("Maximum Drawdown Distribution")
         ax.legend()
         ax.grid(True, alpha=0.3)
 
@@ -613,16 +659,23 @@ class MonteCarloSimulator:
             f"  P(DD < 20%):     {results.prob_drawdown_below_20pct:5.1%}",
         ]
 
-        ax.text(0.1, 0.9, '\n'.join(risk_data), transform=ax.transAxes,
-                fontsize=10, verticalalignment='top', family='monospace',
-                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.5))
-        ax.axis('off')
-        ax.set_title('Monte Carlo Summary')
+        ax.text(
+            0.1,
+            0.9,
+            "\n".join(risk_data),
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment="top",
+            family="monospace",
+            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.5),
+        )
+        ax.axis("off")
+        ax.set_title("Monte Carlo Summary")
 
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
             logger.info(f"Plot saved to {save_path}")
 
         plt.show()

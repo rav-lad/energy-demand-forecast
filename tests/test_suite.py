@@ -14,11 +14,12 @@ Run:
     pytest --cov=. --cov-report=html
 """
 
-import pytest
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import sys
+import pytest
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -96,9 +97,7 @@ class TestDataProcessing:
         """Test feature engineering creates expected columns."""
         # Add derived features
         df = sample_weather_data.copy()
-        df["temperature_2m_mean"] = (
-            df["temperature_2m_max"] + df["temperature_2m_min"]
-        ) / 2
+        df["temperature_2m_mean"] = (df["temperature_2m_max"] + df["temperature_2m_min"]) / 2
         df["temp_range"] = df["temperature_2m_max"] - df["temperature_2m_min"]
 
         assert "temperature_2m_mean" in df.columns
@@ -162,9 +161,7 @@ class TestModels:
             predictions[q] = model.predict(X)
 
         # Q10 should be < Q50 < Q90 (on average)
-        assert (
-            predictions[0.1].mean() < predictions[0.5].mean() < predictions[0.9].mean()
-        )
+        assert predictions[0.1].mean() < predictions[0.5].mean() < predictions[0.9].mean()
 
 
 # =============================================================================
@@ -227,18 +224,15 @@ class TestTradingSystem:
 class TestPipelines:
     """Integration tests for complete pipelines."""
 
-    def test_training_pipeline_xgboost(
-        self, tmp_path, sample_weather_data, sample_energy_data
-    ):
+    def test_training_pipeline_xgboost(self, tmp_path, sample_weather_data, sample_energy_data):
         """Test complete XGBoost training pipeline."""
-        from sklearn.multioutput import MultiOutputRegressor
-        from xgboost import XGBRegressor
         import pickle
 
+        from sklearn.multioutput import MultiOutputRegressor
+        from xgboost import XGBRegressor
+
         # Merge data
-        data = pd.merge(
-            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
-        )
+        data = pd.merge(sample_weather_data, sample_energy_data, on=["date", "insee_region"])
 
         # Create features and targets
         features = [
@@ -278,14 +272,12 @@ class TestPipelines:
 
     def test_benchmark_pipeline(self, sample_weather_data, sample_energy_data):
         """Test benchmark pipeline runs without errors."""
+        from sklearn.metrics import mean_squared_error
         from sklearn.multioutput import MultiOutputRegressor
         from xgboost import XGBRegressor
-        from sklearn.metrics import mean_squared_error
 
         # Merge data
-        data = pd.merge(
-            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
-        )
+        data = pd.merge(sample_weather_data, sample_energy_data, on=["date", "insee_region"])
 
         features = ["temperature_2m_max", "temperature_2m_min", "precipitation_sum"]
         targets = ["conso_elec_mw", "conso_gaz_mw"]
@@ -316,23 +308,17 @@ class TestPipelines:
 class TestWorkflows:
     """E2E tests for complete workflows."""
 
-    def test_full_workflow(
-        self, sample_weather_data, sample_energy_data, sample_market_prices
-    ):
+    def test_full_workflow(self, sample_weather_data, sample_energy_data, sample_market_prices):
         """Test complete workflow: data → train → predict → evaluate."""
+        from sklearn.metrics import mean_squared_error, r2_score
         from sklearn.multioutput import MultiOutputRegressor
         from xgboost import XGBRegressor
-        from sklearn.metrics import mean_squared_error, r2_score
 
         # 1. Merge data
-        data = pd.merge(
-            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
-        )
+        data = pd.merge(sample_weather_data, sample_energy_data, on=["date", "insee_region"])
 
         # 2. Feature engineering
-        data["temp_mean"] = (
-            data["temperature_2m_max"] + data["temperature_2m_min"]
-        ) / 2
+        data["temp_mean"] = (data["temperature_2m_max"] + data["temperature_2m_min"]) / 2
         data["temp_range"] = data["temperature_2m_max"] - data["temperature_2m_min"]
 
         # 3. Prepare features
@@ -404,9 +390,7 @@ class TestDataValidation:
     def test_no_future_leakage(self, sample_weather_data, sample_energy_data):
         """Ensure no future data leakage in training."""
         # Check that features don't include future information
-        merged = pd.merge(
-            sample_weather_data, sample_energy_data, on=["date", "insee_region"]
-        )
+        merged = pd.merge(sample_weather_data, sample_energy_data, on=["date", "insee_region"])
 
         # Sort by date
         merged = merged.sort_values("date")
@@ -424,9 +408,7 @@ class TestDataValidation:
 
         # Check no future leakage: lag value should always be from the past
         for i in range(7, len(merged)):
-            assert (
-                merged.iloc[i]["conso_elec_lag7"] == merged.iloc[i - 7]["conso_elec_mw"]
-            )
+            assert merged.iloc[i]["conso_elec_lag7"] == merged.iloc[i - 7]["conso_elec_mw"]
 
     def test_data_quality_checks(self, sample_weather_data):
         """Test data quality validations."""

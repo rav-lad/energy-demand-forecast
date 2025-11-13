@@ -1,13 +1,19 @@
-import pandas as pd
-import numpy as np
-import joblib
+"""XGBoost model training module for energy demand forecasting.
+
+This module trains an XGBoost regressor for multi-output prediction of
+electricity and gas consumption using preprocessed and transformed features.
+"""
+
 import json
+import sys
 from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
 from sklearn.metrics import mean_squared_error
 from sklearn.multioutput import MultiOutputRegressor
 from xgboost import XGBRegressor
-
-import sys
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.append(str(BASE_DIR))
@@ -21,13 +27,20 @@ MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def train_xgboost(frequency: str):
+    """Train XGBoost model for energy demand forecasting.
+
+    Loads transformed training data, applies best hyperparameters from
+    optimization, trains a multi-output XGBoost regressor, and saves the
+    trained model along with feature names.
+
+    Args:
+        frequency: Data frequency, either "daily" or "hourly"
+    """
     # 1) Load full training data
     df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
 
     # 2) Transform using pre-fitted scaler
-    df = transform_regression_and_xgb(
-        df_raw, frequency=frequency, fit_scaler=False, save=False
-    )
+    df = transform_regression_and_xgb(df_raw, frequency=frequency, fit_scaler=False, save=False)
     y = df[["conso_elec_mw", "conso_gaz_mw"]]
     X = df.drop(columns=["conso_elec_mw", "conso_gaz_mw"])
 

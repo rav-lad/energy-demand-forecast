@@ -21,13 +21,13 @@ Models:
     - all: Train all models sequentially
 """
 
-import sys
 import argparse
+import json
 import logging
-from pathlib import Path
+import sys
 import time
 from datetime import datetime
-import json
+from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -114,9 +114,7 @@ class TrainingPipeline:
             logger.warning(f"Test data not found: {test_file}")
 
         logger.info(f"  ✓ Training data: {train_file}")
-        logger.info(
-            f"  ✓ Test data: {test_file if test_file.exists() else 'Not found'}"
-        )
+        logger.info(f"  ✓ Test data: {test_file if test_file.exists() else 'Not found'}")
 
     def _preprocess(self):
         """Run preprocessing if needed."""
@@ -147,9 +145,9 @@ class TrainingPipeline:
     def _run_transformation(self):
         """Run data transformation."""
         from data_processing.transformation import (
-            transform_regression_and_xgb,
-            transform_lightgbm_quantile,
             transform_dl,
+            transform_lightgbm_quantile,
+            transform_regression_and_xgb,
         )
 
         if self.model_type in ["xgboost", "ridge", "lasso"]:
@@ -260,9 +258,7 @@ class TrainingPipeline:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         if result.returncode != 0:
-            raise RuntimeError(
-                f"{model_type.capitalize()} training failed:\n{result.stderr}"
-            )
+            raise RuntimeError(f"{model_type.capitalize()} training failed:\n{result.stderr}")
 
         logger.info(result.stdout)
 
@@ -282,17 +278,13 @@ class TrainingPipeline:
         results_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = (
-            results_dir / f"{self.model_type}_{self.frequency}_{timestamp}.json"
-        )
+        results_file = results_dir / f"{self.model_type}_{self.frequency}_{timestamp}.json"
 
         results = {
             "model_type": self.model_type,
             "frequency": self.frequency,
             "timestamp": timestamp,
-            "duration_seconds": (
-                self.end_time - self.start_time if self.end_time else None
-            ),
+            "duration_seconds": (self.end_time - self.start_time if self.end_time else None),
             "parameters": self.kwargs,
             "metrics": self.metrics,
         }
@@ -311,9 +303,7 @@ def train_all_models(frequency="daily", **kwargs):
 
     for model in models:
         logger.info("\n" + "=" * 70)
-        logger.info(
-            f"TRAINING MODEL {models.index(model) + 1}/{len(models)}: {model.upper()}"
-        )
+        logger.info(f"TRAINING MODEL {models.index(model) + 1}/{len(models)}: {model.upper()}")
         logger.info("=" * 70 + "\n")
 
         pipeline = TrainingPipeline(model, frequency, **kwargs)

@@ -9,17 +9,18 @@ Features:
 - Model registry
 """
 
-import mlflow
-import mlflow.sklearn
-import mlflow.pytorch
-from mlflow.tracking import MlflowClient
-from pathlib import Path
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, Optional, List
+import json
 import logging
 from datetime import datetime
-import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import mlflow
+import mlflow.pytorch
+import mlflow.sklearn
+import numpy as np
+import pandas as pd
+from mlflow.tracking import MlflowClient
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,7 @@ class MLflowTracker:
 
         self.current_run = None
 
-    def start_run(
-        self, run_name: Optional[str] = None, tags: Optional[Dict[str, str]] = None
-    ):
+    def start_run(self, run_name: Optional[str] = None, tags: Optional[Dict[str, str]] = None):
         """
         Start a new MLflow run.
 
@@ -270,9 +269,7 @@ class MLflowTracker:
             self.log_metrics(metrics)
 
             # Log model
-            self.log_model(
-                model, registered_model_name=f"{self.experiment_name}_{model_name}"
-            )
+            self.log_model(model, registered_model_name=f"{self.experiment_name}_{model_name}")
 
             # Log artifacts
             if artifacts:
@@ -440,16 +437,14 @@ if __name__ == "__main__":
     tracker = MLflowTracker(experiment_name="energy-trading-demo")
 
     # Example: Log a training session
-    from sklearn.ensemble import RandomForestRegressor
     from sklearn.datasets import make_regression
-    from sklearn.model_selection import train_test_split
+    from sklearn.ensemble import RandomForestRegressor
     from sklearn.metrics import mean_squared_error, r2_score
+    from sklearn.model_selection import train_test_split
 
     # Generate sample data
     X, y = make_regression(n_samples=1000, n_features=10, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # Train model
     model = RandomForestRegressor(n_estimators=100, random_state=42)

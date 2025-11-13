@@ -1,10 +1,10 @@
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-import numpy as np
 from pathlib import Path
+
 import holidays
 import joblib
-
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 TRANSFORMED_DIR = BASE_DIR / "data" / "transformed_data"
@@ -52,9 +52,7 @@ def transform_regression_and_xgb(
 
     # Temperatures
     df["temp_mean"] = (df["temperature_2m_max"] + df["temperature_2m_min"]) / 2
-    df["apparent_temp_mean"] = (
-        df["apparent_temperature_max"] + df["apparent_temperature_min"]
-    ) / 2
+    df["apparent_temp_mean"] = (df["apparent_temperature_max"] + df["apparent_temperature_min"]) / 2
     df["temp_range"] = df["temperature_2m_max"] - df["temperature_2m_min"]
 
     # Wind
@@ -85,9 +83,7 @@ def transform_regression_and_xgb(
 
     # Normalization
     target_cols = ["conso_elec_mw", "conso_gaz_mw"]
-    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns.difference(
-        target_cols
-    )
+    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns.difference(target_cols)
 
     if scaler_path is None:
         scaler_path = SCALER_DIR / f"scaler_{frequency}_reglin_xgboost.pkl"
@@ -103,9 +99,7 @@ def transform_regression_and_xgb(
     # Save transformed data
     if save:
         TRANSFORMED_DIR.mkdir(parents=True, exist_ok=True)
-        df.to_csv(
-            TRANSFORMED_DIR / f"train_{frequency}_reglin_xgboost.csv", index=False
-        )
+        df.to_csv(TRANSFORMED_DIR / f"train_{frequency}_reglin_xgboost.csv", index=False)
     if verbose:
         print(
             f"Transformation complete. Shape = {df.shape}, Features = {df.columns.tolist()[:5]}..."
@@ -142,9 +136,7 @@ def transform_dl(df: pd.DataFrame, seq_len=24, filter_too_short=False):
     for col in ["sunrise", "sunset"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
-            df[col] = (
-                df[col].dt.hour * 3600 + df[col].dt.minute * 60 + df[col].dt.second
-            )
+            df[col] = df[col].dt.hour * 3600 + df[col].dt.minute * 60 + df[col].dt.second
 
     if filter_too_short:
         min_length = 48  # max_encoder_length + max_prediction_length
@@ -168,9 +160,7 @@ def transform_time_series(df: pd.DataFrame):
     return df
 
 
-def transform_lightgbm_quantile(
-    df: pd.DataFrame, frequency="daily", save=True, lags=True
-):
+def transform_lightgbm_quantile(df: pd.DataFrame, frequency="daily", save=True, lags=True):
     """
     Transformation for LightGBM quantile models:
     - Temporal, meteorological, and advanced interaction features
@@ -196,26 +186,20 @@ def transform_lightgbm_quantile(
     if lags:
         df = df.sort_values(by=["insee_region", "date"])
         for lag in [1, 7]:
-            df[f"conso_elec_mw_lag{lag}"] = df.groupby("insee_region")[
-                "conso_elec_mw"
-            ].shift(lag)
-            df[f"conso_gaz_mw_lag{lag}"] = df.groupby("insee_region")[
-                "conso_gaz_mw"
-            ].shift(lag)
-            df[f"temp_mean_lag{lag}"] = df.groupby("insee_region")[
-                "temperature_2m_max"
-            ].shift(lag)
+            df[f"conso_elec_mw_lag{lag}"] = df.groupby("insee_region")["conso_elec_mw"].shift(lag)
+            df[f"conso_gaz_mw_lag{lag}"] = df.groupby("insee_region")["conso_gaz_mw"].shift(lag)
+            df[f"temp_mean_lag{lag}"] = df.groupby("insee_region")["temperature_2m_max"].shift(lag)
             df[f"rain_sum_lag{lag}"] = df.groupby("insee_region")["rain_sum"].shift(lag)
 
-        df["rolling_conso_elec_3"] = df.groupby("insee_region")[
-            "conso_elec_mw"
-        ].transform(lambda x: x.shift(1).rolling(3).mean())
-        df["rolling_conso_elec_7"] = df.groupby("insee_region")[
-            "conso_elec_mw"
-        ].transform(lambda x: x.shift(1).rolling(7).mean())
-        df["rolling_temp_max_3"] = df.groupby("insee_region")[
-            "temperature_2m_max"
-        ].transform(lambda x: x.shift(1).rolling(3).max())
+        df["rolling_conso_elec_3"] = df.groupby("insee_region")["conso_elec_mw"].transform(
+            lambda x: x.shift(1).rolling(3).mean()
+        )
+        df["rolling_conso_elec_7"] = df.groupby("insee_region")["conso_elec_mw"].transform(
+            lambda x: x.shift(1).rolling(7).mean()
+        )
+        df["rolling_temp_max_3"] = df.groupby("insee_region")["temperature_2m_max"].transform(
+            lambda x: x.shift(1).rolling(3).max()
+        )
 
     # Interactions
     df["temp_ferie_interaction"] = df["temperature_2m_max"] * df["ferie"].astype(int)
@@ -223,9 +207,7 @@ def transform_lightgbm_quantile(
 
     # Derived meteorological variables
     df["temp_mean"] = (df["temperature_2m_max"] + df["temperature_2m_min"]) / 2
-    df["apparent_temp_mean"] = (
-        df["apparent_temperature_max"] + df["apparent_temperature_min"]
-    ) / 2
+    df["apparent_temp_mean"] = (df["apparent_temperature_max"] + df["apparent_temperature_min"]) / 2
     df["temp_range"] = df["temperature_2m_max"] - df["temperature_2m_min"]
     df["wind_range"] = df["wind_gusts_10m_max"] - df["wind_speed_10m_max"]
     df["temp_radiation_interaction"] = df["temp_mean"] * df["shortwave_radiation_sum"]
@@ -256,9 +238,7 @@ def transform_lightgbm_quantile(
     # Fill and clean lag columns
     if lags:
         lag_cols = [c for c in df.columns if "lag" in c or "rolling" in c]
-        df[lag_cols] = df.groupby("insee_region")[lag_cols].apply(
-            lambda g: g.bfill().ffill()
-        )
+        df[lag_cols] = df.groupby("insee_region")[lag_cols].apply(lambda g: g.bfill().ffill())
         df.dropna(subset=lag_cols, inplace=True)
 
     # Categorical encoding

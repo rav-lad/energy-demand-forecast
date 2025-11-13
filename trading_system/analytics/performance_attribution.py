@@ -11,11 +11,12 @@ Author: Quant Research Team
 Date: 2024-11-12
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-import logging
 from scipy import stats
 from sklearn.linear_model import LinearRegression
 
@@ -59,9 +60,7 @@ class PerformanceAttributor:
         logger.info("Initialized Performance Attributor")
 
     def calculate_alpha_beta(
-        self,
-        strategy_returns: pd.Series,
-        benchmark_returns: pd.Series
+        self, strategy_returns: pd.Series, benchmark_returns: pd.Series
     ) -> Tuple[float, float, float]:
         """
         Calculate alpha and beta using CAPM regression.
@@ -100,9 +99,7 @@ class PerformanceAttributor:
         return alpha_annualized, beta, r_squared
 
     def calculate_information_ratio(
-        self,
-        strategy_returns: pd.Series,
-        benchmark_returns: pd.Series
+        self, strategy_returns: pd.Series, benchmark_returns: pd.Series
     ) -> float:
         """
         Calculate Information Ratio (IR).
@@ -139,7 +136,7 @@ class PerformanceAttributor:
         portfolio_returns: pd.Series,
         asset_returns: pd.DataFrame,
         weights: pd.DataFrame,
-        benchmark_weights: Optional[pd.DataFrame] = None
+        benchmark_weights: Optional[pd.DataFrame] = None,
     ) -> Dict[str, float]:
         """
         Brinson-Fachler attribution: decompose returns into Timing and Selection.
@@ -163,9 +160,7 @@ class PerformanceAttributor:
             # Equal weight benchmark
             n_assets = asset_returns.shape[1]
             benchmark_weights = pd.DataFrame(
-                1.0 / n_assets,
-                index=asset_returns.index,
-                columns=asset_returns.columns
+                1.0 / n_assets, index=asset_returns.index, columns=asset_returns.columns
             )
 
         # Calculate component returns
@@ -198,10 +193,10 @@ class PerformanceAttributor:
             interaction += ((w_p - w_b) * (r - r_b)).sum()
 
         results = {
-            'timing': timing,
-            'selection': selection,
-            'interaction': interaction,
-            'total': timing + selection + interaction
+            "timing": timing,
+            "selection": selection,
+            "interaction": interaction,
+            "total": timing + selection + interaction,
         }
 
         logger.info(
@@ -213,9 +208,7 @@ class PerformanceAttributor:
         return results
 
     def factor_attribution(
-        self,
-        strategy_returns: pd.Series,
-        factor_returns: pd.DataFrame
+        self, strategy_returns: pd.Series, factor_returns: pd.DataFrame
     ) -> pd.Series:
         """
         Factor-based attribution: decompose returns by factor exposures.
@@ -250,13 +243,13 @@ class PerformanceAttributor:
 
         # Alpha (intercept)
         alpha = model.intercept_ * 252
-        factor_contributions['alpha'] = alpha
+        factor_contributions["alpha"] = alpha
 
         # Unexplained (residual)
         y_pred = model.predict(X)
         residuals = y - y_pred
         unexplained = residuals.std() * np.sqrt(252)
-        factor_contributions['unexplained'] = unexplained
+        factor_contributions["unexplained"] = unexplained
 
         return pd.Series(factor_contributions)
 
@@ -264,7 +257,7 @@ class PerformanceAttributor:
         self,
         strategy_returns: pd.Series,
         benchmark_returns: pd.Series,
-        factor_returns: Optional[pd.DataFrame] = None
+        factor_returns: Optional[pd.DataFrame] = None,
     ) -> AttributionMetrics:
         """
         Comprehensive performance attribution analysis.
@@ -284,10 +277,7 @@ class PerformanceAttributor:
         total_benchmark_return = (1 + benchmark_returns).prod() - 1
 
         # Alpha and beta
-        alpha, beta, r_squared = self.calculate_alpha_beta(
-            strategy_returns,
-            benchmark_returns
-        )
+        alpha, beta, r_squared = self.calculate_alpha_beta(strategy_returns, benchmark_returns)
 
         # Information ratio
         ir = self.calculate_information_ratio(strategy_returns, benchmark_returns)
@@ -309,7 +299,7 @@ class PerformanceAttributor:
             information_ratio=ir,
             timing_contribution=timing_contribution,
             selection_contribution=selection_contribution,
-            interaction_contribution=interaction_contribution
+            interaction_contribution=interaction_contribution,
         )
 
         logger.info("Attribution analysis complete")
@@ -317,9 +307,7 @@ class PerformanceAttributor:
         return metrics
 
     def calculate_drawdown_attribution(
-        self,
-        strategy_equity: pd.Series,
-        positions: pd.DataFrame
+        self, strategy_equity: pd.Series, positions: pd.DataFrame
     ) -> pd.DataFrame:
         """
         Attribute drawdowns to specific positions/strategies.
@@ -343,8 +331,8 @@ class PerformanceAttributor:
         dd_period = positions.loc[dd_start_idx:max_dd_idx]
 
         # Calculate contribution of each position to drawdown
-        if len(dd_period) > 0 and 'pnl' in dd_period.columns:
-            position_contributions = dd_period.groupby('position_id')['pnl'].sum()
+        if len(dd_period) > 0 and "pnl" in dd_period.columns:
+            position_contributions = dd_period.groupby("position_id")["pnl"].sum()
             position_contributions = position_contributions.sort_values()
 
             return position_contributions
@@ -352,10 +340,7 @@ class PerformanceAttributor:
             return pd.Series()
 
     def rolling_attribution(
-        self,
-        strategy_returns: pd.Series,
-        benchmark_returns: pd.Series,
-        window: int = 60
+        self, strategy_returns: pd.Series, benchmark_returns: pd.Series, window: int = 60
     ) -> pd.DataFrame:
         """
         Calculate rolling alpha and beta over time.
@@ -377,20 +362,17 @@ class PerformanceAttributor:
         aligned_bench = benchmark_returns.loc[common_idx]
 
         for i in range(window, len(common_idx)):
-            window_strat = aligned_strat.iloc[i - window:i]
-            window_bench = aligned_bench.iloc[i - window:i]
+            window_strat = aligned_strat.iloc[i - window : i]
+            window_bench = aligned_bench.iloc[i - window : i]
 
             # Calculate alpha, beta for window
             try:
                 alpha, beta, _ = self.calculate_alpha_beta(window_strat, window_bench)
                 ir = self.calculate_information_ratio(window_strat, window_bench)
 
-                results.append({
-                    'date': common_idx[i],
-                    'alpha': alpha,
-                    'beta': beta,
-                    'information_ratio': ir
-                })
+                results.append(
+                    {"date": common_idx[i], "alpha": alpha, "beta": beta, "information_ratio": ir}
+                )
             except Exception as e:
                 logger.warning(f"Error calculating rolling attribution: {e}")
                 continue
@@ -399,9 +381,7 @@ class PerformanceAttributor:
 
 
 def create_performance_report(
-    strategy_returns: pd.Series,
-    benchmark_returns: pd.Series,
-    strategy_name: str = "Strategy"
+    strategy_returns: pd.Series, benchmark_returns: pd.Series, strategy_name: str = "Strategy"
 ) -> str:
     """
     Generate comprehensive performance report.
@@ -477,19 +457,18 @@ if __name__ == "__main__":
 
     # Generate synthetic data
     np.random.seed(42)
-    dates = pd.date_range('2020-01-01', '2024-01-01', freq='D')
+    dates = pd.date_range("2020-01-01", "2024-01-01", freq="D")
     n = len(dates)
 
     # Benchmark returns (market)
     benchmark_returns = pd.Series(
-        np.random.normal(0.0005, 0.01, n),  # 12.5% annual return, 16% vol
-        index=dates
+        np.random.normal(0.0005, 0.01, n), index=dates  # 12.5% annual return, 16% vol
     )
 
     # Strategy returns (with alpha)
     strategy_returns = pd.Series(
         1.5 * benchmark_returns + 0.0002 + np.random.normal(0, 0.005, n),  # Beta=1.5, Alpha=5%
-        index=dates
+        index=dates,
     )
 
     # Create attributor
@@ -503,9 +482,9 @@ if __name__ == "__main__":
     print("\n" + report)
 
     # Rolling attribution
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("ROLLING ATTRIBUTION (Last 5 Periods)")
-    print("="*60)
+    print("=" * 60)
 
     rolling = attributor.rolling_attribution(strategy_returns, benchmark_returns, window=60)
     print(rolling.tail().to_string(index=False))

@@ -14,17 +14,19 @@ Date: 2025-11-12
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Callable
 from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
 from enum import Enum
+from typing import Callable, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 
 class OrderType(Enum):
     """Order types supported by the backtesting engine."""
+
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
@@ -32,6 +34,7 @@ class OrderType(Enum):
 
 class OrderSide(Enum):
     """Order side (buy/sell)."""
+
     BUY = "buy"
     SELL = "sell"
 
@@ -39,6 +42,7 @@ class OrderSide(Enum):
 @dataclass
 class Order:
     """Represents a trading order."""
+
     timestamp: datetime
     symbol: str
     side: OrderSide
@@ -60,6 +64,7 @@ class Order:
 @dataclass
 class Position:
     """Represents a trading position."""
+
     symbol: str
     quantity: float = 0.0  # Positive for long, negative for short
     avg_entry_price: float = 0.0
@@ -68,8 +73,9 @@ class Position:
     total_commission: float = 0.0
     total_slippage: float = 0.0
 
-    def update_position(self, fill_quantity: float, fill_price: float,
-                       commission: float, slippage: float) -> float:
+    def update_position(
+        self, fill_quantity: float, fill_price: float, commission: float, slippage: float
+    ) -> float:
         """
         Update position with a new fill.
 
@@ -79,8 +85,7 @@ class Position:
         realized = 0.0
 
         # If reversing or closing position
-        if (self.quantity > 0 and fill_quantity < 0) or \
-           (self.quantity < 0 and fill_quantity > 0):
+        if (self.quantity > 0 and fill_quantity < 0) or (self.quantity < 0 and fill_quantity > 0):
 
             close_quantity = min(abs(fill_quantity), abs(self.quantity))
 
@@ -93,8 +98,10 @@ class Position:
             realized -= commission + slippage
 
             # Update position
-            remaining_fill = fill_quantity + (close_quantity if self.quantity > 0 else -close_quantity)
-            self.quantity -= (close_quantity if self.quantity > 0 else -close_quantity)
+            remaining_fill = fill_quantity + (
+                close_quantity if self.quantity > 0 else -close_quantity
+            )
+            self.quantity -= close_quantity if self.quantity > 0 else -close_quantity
 
             if abs(self.quantity) < 1e-6:
                 self.quantity = 0.0
@@ -132,15 +139,15 @@ class TransactionCostModel:
 
     # Commission structure
     commission_pct: float = 0.001  # 0.1% commission
-    commission_min: float = 1.0    # Minimum commission per trade
+    commission_min: float = 1.0  # Minimum commission per trade
 
     # Slippage model
-    slippage_pct: float = 0.0005   # 0.05% slippage
-    slippage_fixed: float = 0.5    # Fixed slippage in EUR/MWh
+    slippage_pct: float = 0.0005  # 0.05% slippage
+    slippage_fixed: float = 0.5  # Fixed slippage in EUR/MWh
 
     # Market impact (for large orders)
     market_impact_coef: float = 0.01  # Impact coefficient
-    daily_volume_pct: float = 0.05     # Max 5% of daily volume
+    daily_volume_pct: float = 0.05  # Max 5% of daily volume
 
     def calculate_commission(self, quantity: float, price: float) -> float:
         """Calculate commission for a trade."""
@@ -148,9 +155,13 @@ class TransactionCostModel:
         commission = max(notional * self.commission_pct, self.commission_min)
         return commission
 
-    def calculate_slippage(self, quantity: float, price: float,
-                          volatility: float = 0.0,
-                          daily_volume: Optional[float] = None) -> float:
+    def calculate_slippage(
+        self,
+        quantity: float,
+        price: float,
+        volatility: float = 0.0,
+        daily_volume: Optional[float] = None,
+    ) -> float:
         """
         Calculate slippage for a trade.
 
@@ -177,7 +188,7 @@ class TransactionCostModel:
         market_impact = 0.0
         if daily_volume is not None and daily_volume > 0:
             volume_participation = abs(quantity) / daily_volume
-            market_impact = notional * self.market_impact_coef * (volume_participation ** 0.5)
+            market_impact = notional * self.market_impact_coef * (volume_participation**0.5)
 
         # Volatility adjustment
         vol_adjustment = 1.0 + volatility if volatility > 0 else 1.0
@@ -255,7 +266,9 @@ class BacktestingEngine:
         self.strategy_func: Optional[Callable] = None
         self.strategy_name: str = ""
 
-        logger.info(f"BacktestingEngine initialized with capital: {config.initial_capital:,.2f} EUR")
+        logger.info(
+            f"BacktestingEngine initialized with capital: {config.initial_capital:,.2f} EUR"
+        )
 
     def add_strategy(self, name: str, strategy_func: Callable) -> None:
         """
@@ -270,8 +283,9 @@ class BacktestingEngine:
         self.strategy_func = strategy_func
         logger.info(f"Added strategy: {name}")
 
-    def _create_order(self, timestamp: datetime, symbol: str,
-                     signal: float, current_price: float) -> Optional[Order]:
+    def _create_order(
+        self, timestamp: datetime, symbol: str, signal: float, current_price: float
+    ) -> Optional[Order]:
         """
         Create an order based on strategy signal.
 
@@ -307,13 +321,18 @@ class BacktestingEngine:
             symbol=symbol,
             side=side,
             quantity=abs(trade_qty),
-            order_type=OrderType.MARKET
+            order_type=OrderType.MARKET,
         )
 
         return order
 
-    def _execute_order(self, order: Order, execution_price: float,
-                      volatility: float = 0.0, daily_volume: Optional[float] = None) -> None:
+    def _execute_order(
+        self,
+        order: Order,
+        execution_price: float,
+        volatility: float = 0.0,
+        daily_volume: Optional[float] = None,
+    ) -> None:
         """
         Execute an order and update positions.
 
@@ -324,9 +343,7 @@ class BacktestingEngine:
             daily_volume: Average daily volume (for market impact)
         """
         # Calculate transaction costs
-        commission = self.config.cost_model.calculate_commission(
-            order.quantity, execution_price
-        )
+        commission = self.config.cost_model.calculate_commission(order.quantity, execution_price)
         slippage = self.config.cost_model.calculate_slippage(
             order.quantity, execution_price, volatility, daily_volume
         )
@@ -364,21 +381,25 @@ class BacktestingEngine:
             self.winning_trades += 1
 
         # Record trade
-        self.trades.append({
-            'timestamp': order.timestamp,
-            'symbol': order.symbol,
-            'side': order.side.value,
-            'quantity': order.quantity,
-            'price': execution_price,
-            'commission': commission,
-            'slippage': slippage,
-            'realized_pnl': realized_pnl,
-            'cash': self.cash
-        })
+        self.trades.append(
+            {
+                "timestamp": order.timestamp,
+                "symbol": order.symbol,
+                "side": order.side.value,
+                "quantity": order.quantity,
+                "price": execution_price,
+                "commission": commission,
+                "slippage": slippage,
+                "realized_pnl": realized_pnl,
+                "cash": self.cash,
+            }
+        )
 
-        logger.debug(f"Executed {order.side.value} {order.quantity:.2f} {order.symbol} "
-                    f"@ {execution_price:.2f}, Commission: {commission:.2f}, "
-                    f"Slippage: {slippage:.2f}, Realized P&L: {realized_pnl:.2f}")
+        logger.debug(
+            f"Executed {order.side.value} {order.quantity:.2f} {order.symbol} "
+            f"@ {execution_price:.2f}, Commission: {commission:.2f}, "
+            f"Slippage: {slippage:.2f}, Realized P&L: {realized_pnl:.2f}"
+        )
 
     def _update_equity(self, timestamp: datetime, market_prices: Dict[str, float]) -> float:
         """
@@ -413,13 +434,20 @@ class BacktestingEngine:
 
         # Check drawdown limit
         if drawdown > self.config.max_drawdown_pct:
-            logger.warning(f"Maximum drawdown exceeded: {drawdown:.2%} > {self.config.max_drawdown_pct:.2%}")
+            logger.warning(
+                f"Maximum drawdown exceeded: {drawdown:.2%} > {self.config.max_drawdown_pct:.2%}"
+            )
 
         return equity
 
-    def run(self, price_data: pd.DataFrame, signals: pd.DataFrame,
-            symbol: str = 'DEMAND', start_date: Optional[datetime] = None,
-            end_date: Optional[datetime] = None) -> pd.DataFrame:
+    def run(
+        self,
+        price_data: pd.DataFrame,
+        signals: pd.DataFrame,
+        symbol: str = "DEMAND",
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> pd.DataFrame:
         """
         Run backtest on historical data.
 
@@ -452,13 +480,21 @@ class BacktestingEngine:
         # Main backtest loop
         for i in range(len(price_data)):
             timestamp = price_data.index[i]
-            current_price = price_data.iloc[i]['price'] if 'price' in price_data.columns else price_data.iloc[i][0]
-            signal = signals.iloc[i]['signal'] if 'signal' in signals.columns else signals.iloc[i][0]
+            current_price = (
+                price_data.iloc[i]["price"]
+                if "price" in price_data.columns
+                else price_data.iloc[i][0]
+            )
+            signal = (
+                signals.iloc[i]["signal"] if "signal" in signals.columns else signals.iloc[i][0]
+            )
 
             # Calculate volatility for slippage model (rolling 20-day)
             if i >= 20:
-                returns = price_data.iloc[i-20:i].pct_change().dropna()
-                volatility = returns.std().iloc[0] if isinstance(returns, pd.DataFrame) else returns.std()
+                returns = price_data.iloc[i - 20 : i].pct_change().dropna()
+                volatility = (
+                    returns.std().iloc[0] if isinstance(returns, pd.DataFrame) else returns.std()
+                )
             else:
                 volatility = 0.0
 
@@ -469,7 +505,11 @@ class BacktestingEngine:
             if order is not None and i + self.config.fill_delay_bars < len(price_data):
                 # Fill at next bar's price (more realistic)
                 fill_timestamp = price_data.index[i + self.config.fill_delay_bars]
-                fill_price = price_data.iloc[i + self.config.fill_delay_bars]['price'] if 'price' in price_data.columns else price_data.iloc[i + self.config.fill_delay_bars][0]
+                fill_price = (
+                    price_data.iloc[i + self.config.fill_delay_bars]["price"]
+                    if "price" in price_data.columns
+                    else price_data.iloc[i + self.config.fill_delay_bars][0]
+                )
 
                 self._execute_order(order, fill_price, volatility)
                 self.orders.append(order)
@@ -481,9 +521,11 @@ class BacktestingEngine:
         # Generate results
         results = self._generate_results()
 
-        logger.info(f"Backtest completed: {self.total_trades} trades, "
-                   f"Final equity: {equity:,.2f} EUR, "
-                   f"Total return: {(equity/self.initial_capital - 1)*100:.2f}%")
+        logger.info(
+            f"Backtest completed: {self.total_trades} trades, "
+            f"Final equity: {equity:,.2f} EUR, "
+            f"Total return: {(equity/self.initial_capital - 1)*100:.2f}%"
+        )
 
         return results
 
@@ -495,16 +537,16 @@ class BacktestingEngine:
             results: DataFrame with equity curve, positions, and metrics
         """
         # Create equity curve DataFrame
-        equity_df = pd.DataFrame(self.equity_curve, columns=['timestamp', 'equity'])
-        equity_df.set_index('timestamp', inplace=True)
+        equity_df = pd.DataFrame(self.equity_curve, columns=["timestamp", "equity"])
+        equity_df.set_index("timestamp", inplace=True)
 
         # Calculate returns
-        equity_df['returns'] = equity_df['equity'].pct_change()
-        equity_df['cumulative_returns'] = (1 + equity_df['returns']).cumprod() - 1
+        equity_df["returns"] = equity_df["equity"].pct_change()
+        equity_df["cumulative_returns"] = (1 + equity_df["returns"]).cumprod() - 1
 
         # Add drawdown
-        drawdown_df = pd.DataFrame(self.drawdown_curve, columns=['timestamp', 'drawdown'])
-        drawdown_df.set_index('timestamp', inplace=True)
+        drawdown_df = pd.DataFrame(self.drawdown_curve, columns=["timestamp", "drawdown"])
+        drawdown_df.set_index("timestamp", inplace=True)
         equity_df = equity_df.join(drawdown_df)
 
         return equity_df
@@ -519,13 +561,13 @@ class BacktestingEngine:
         if len(self.equity_curve) == 0:
             return {}
 
-        equity_df = pd.DataFrame(self.equity_curve, columns=['timestamp', 'equity'])
-        equity_df.set_index('timestamp', inplace=True)
+        equity_df = pd.DataFrame(self.equity_curve, columns=["timestamp", "equity"])
+        equity_df.set_index("timestamp", inplace=True)
 
-        returns = equity_df['equity'].pct_change().dropna()
+        returns = equity_df["equity"].pct_change().dropna()
 
         # Calculate metrics
-        total_return = (equity_df['equity'].iloc[-1] / self.initial_capital) - 1
+        total_return = (equity_df["equity"].iloc[-1] / self.initial_capital) - 1
 
         # Annualized metrics (assuming daily data)
         days = (equity_df.index[-1] - equity_df.index[0]).days
@@ -544,22 +586,22 @@ class BacktestingEngine:
         win_rate = self.winning_trades / self.total_trades if self.total_trades > 0 else 0
 
         # Profit factor
-        winning_pnl = sum([t['realized_pnl'] for t in self.trades if t['realized_pnl'] > 0])
-        losing_pnl = abs(sum([t['realized_pnl'] for t in self.trades if t['realized_pnl'] < 0]))
+        winning_pnl = sum([t["realized_pnl"] for t in self.trades if t["realized_pnl"] > 0])
+        losing_pnl = abs(sum([t["realized_pnl"] for t in self.trades if t["realized_pnl"] < 0]))
         profit_factor = winning_pnl / losing_pnl if losing_pnl > 0 else 0
 
         metrics = {
-            'total_return': total_return,
-            'annualized_return': annualized_return,
-            'annualized_volatility': annualized_vol,
-            'sharpe_ratio': sharpe_ratio,
-            'max_drawdown': max_drawdown,
-            'total_trades': self.total_trades,
-            'win_rate': win_rate,
-            'profit_factor': profit_factor,
-            'total_commission': self.total_commission,
-            'total_slippage': self.total_slippage,
-            'final_equity': equity_df['equity'].iloc[-1]
+            "total_return": total_return,
+            "annualized_return": annualized_return,
+            "annualized_volatility": annualized_vol,
+            "sharpe_ratio": sharpe_ratio,
+            "max_drawdown": max_drawdown,
+            "total_trades": self.total_trades,
+            "win_rate": win_rate,
+            "profit_factor": profit_factor,
+            "total_commission": self.total_commission,
+            "total_slippage": self.total_slippage,
+            "final_equity": equity_df["equity"].iloc[-1],
         }
 
         return metrics

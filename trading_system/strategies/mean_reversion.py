@@ -10,11 +10,12 @@ Author: Quant Research Team
 Date: 2024-11-12
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Tuple, Optional, Dict
-from dataclasses import dataclass
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +72,7 @@ class MeanReversionStrategy:
 
         logger.info(f"Initialized Mean Reversion Strategy with config: {self.config}")
 
-    def calculate_half_life(
-        self,
-        prices: pd.Series,
-        method: str = 'ols'
-    ) -> Tuple[float, float]:
+    def calculate_half_life(self, prices: pd.Series, method: str = "ols") -> Tuple[float, float]:
         """
         Calculate half-life of mean reversion using Ornstein-Uhlenbeck process.
 
@@ -103,9 +100,9 @@ class MeanReversionStrategy:
             )
 
         # Use last N days
-        prices_recent = prices.iloc[-self.config.half_life_window:]
+        prices_recent = prices.iloc[-self.config.half_life_window :]
 
-        if method == 'ols':
+        if method == "ols":
             # OLS regression: ΔX_t = α + β*X_{t-1} + ε
             lag_prices = prices_recent.shift(1).dropna()
             price_changes = prices_recent.diff().dropna()
@@ -126,11 +123,11 @@ class MeanReversionStrategy:
                 logger.warning("OLS failed, using default half-life")
                 return 10.0, 0.0693  # Default: 10 days half-life
 
-        elif method == 'mle':
+        elif method == "mle":
             # Maximum Likelihood Estimation (more robust but slower)
             # Not implemented yet, fallback to OLS
             logger.warning("MLE not implemented, using OLS")
-            return self.calculate_half_life(prices, method='ols')
+            return self.calculate_half_life(prices, method="ols")
         else:
             raise ValueError(f"Unknown method: {method}. Use 'ols' or 'mle'")
 
@@ -145,15 +142,10 @@ class MeanReversionStrategy:
             half_life = np.inf
 
         # Clip to reasonable range
-        half_life = np.clip(
-            half_life,
-            self.config.min_half_life,
-            self.config.max_half_life
-        )
+        half_life = np.clip(half_life, self.config.min_half_life, self.config.max_half_life)
 
         logger.info(
-            f"Half-life: {half_life:.2f} days, "
-            f"Mean reversion speed: {mean_reversion_speed:.4f}"
+            f"Half-life: {half_life:.2f} days, " f"Mean reversion speed: {mean_reversion_speed:.4f}"
         )
 
         return half_life, mean_reversion_speed
@@ -182,9 +174,7 @@ class MeanReversionStrategy:
         )
 
     def generate_signals(
-        self,
-        prices: pd.Series,
-        additional_features: Optional[pd.DataFrame] = None
+        self, prices: pd.Series, additional_features: Optional[pd.DataFrame] = None
     ) -> pd.DataFrame:
         """
         Generate trading signals based on Z-scores.
@@ -213,69 +203,66 @@ class MeanReversionStrategy:
             logger.warning("Strategy not calibrated. Running calibration first...")
             self.calibrate(prices)
 
-        df = pd.DataFrame({'price': prices})
+        df = pd.DataFrame({"price": prices})
 
         # Calculate rolling statistics
-        df['rolling_mean'] = df['price'].rolling(
-            window=self.config.lookback_window,
-            min_periods=1
-        ).mean()
+        df["rolling_mean"] = (
+            df["price"].rolling(window=self.config.lookback_window, min_periods=1).mean()
+        )
 
-        df['rolling_std'] = df['price'].rolling(
-            window=self.config.lookback_window,
-            min_periods=1
-        ).std()
+        df["rolling_std"] = (
+            df["price"].rolling(window=self.config.lookback_window, min_periods=1).std()
+        )
 
         # Calculate Z-score
-        df['z_score'] = (df['price'] - df['rolling_mean']) / df['rolling_std']
-        df['z_score'] = df['z_score'].fillna(0)
+        df["z_score"] = (df["price"] - df["rolling_mean"]) / df["rolling_std"]
+        df["z_score"] = df["z_score"].fillna(0)
 
         # Generate raw signals
-        df['raw_signal'] = 0
+        df["raw_signal"] = 0
 
         # Entry signals
-        df.loc[df['z_score'] < -self.config.entry_z_score, 'raw_signal'] = 1  # BUY
-        df.loc[df['z_score'] > self.config.entry_z_score, 'raw_signal'] = -1  # SELL
+        df.loc[df["z_score"] < -self.config.entry_z_score, "raw_signal"] = 1  # BUY
+        df.loc[df["z_score"] > self.config.entry_z_score, "raw_signal"] = -1  # SELL
 
         # Exit signals (flatten position when near mean)
         df.loc[
-            (df['z_score'].abs() < self.config.exit_z_score) & (df['raw_signal'] == 0),
-            'raw_signal'
+            (df["z_score"].abs() < self.config.exit_z_score) & (df["raw_signal"] == 0), "raw_signal"
         ] = 0
 
         # Stop-loss (force exit on extreme moves)
-        df['stop_loss'] = df['z_score'].abs() > self.config.stop_loss_z
+        df["stop_loss"] = df["z_score"].abs() > self.config.stop_loss_z
 
         # Convert signals to positions (with state management)
-        df['signal'] = 0
-        df['position'] = 0
+        df["signal"] = 0
+        df["position"] = 0
 
         current_position = 0
         for i in range(len(df)):
-            raw_sig = df['raw_signal'].iloc[i]
-            stop_loss = df['stop_loss'].iloc[i]
-            z_score = df['z_score'].iloc[i]
+            raw_sig = df["raw_signal"].iloc[i]
+            stop_loss = df["stop_loss"].iloc[i]
+            z_score = df["z_score"].iloc[i]
 
             # Stop-loss: force exit
             if stop_loss:
                 current_position = 0
-                df['signal'].iloc[i] = -np.sign(current_position) if current_position != 0 else 0
+                df["signal"].iloc[i] = -np.sign(current_position) if current_position != 0 else 0
 
             # Exit when Z-score crosses zero (mean)
             elif abs(z_score) < self.config.exit_z_score and current_position != 0:
-                df['signal'].iloc[i] = -np.sign(current_position)  # Exit signal
+                df["signal"].iloc[i] = -np.sign(current_position)  # Exit signal
                 current_position = 0
 
             # Entry signals
             elif raw_sig != 0 and current_position == 0:
-                df['signal'].iloc[i] = raw_sig
+                df["signal"].iloc[i] = raw_sig
                 current_position = raw_sig
 
             # Hold position
             else:
-                df['signal'].iloc[i] = 0
+                df["signal"].iloc[i] = 0
 
-            df['position'].iloc[i] = current_position
+            df["position"].iloc[i] = current_position
 
         # Position sizing based on mean reversion strength
         # Stronger mean reversion (lower half-life) → larger positions
@@ -285,7 +272,7 @@ class MeanReversionStrategy:
         else:
             size_multiplier = 1.0
 
-        df['position_size'] = df['position'].abs() * self.config.position_size * size_multiplier
+        df["position_size"] = df["position"].abs() * self.config.position_size * size_multiplier
 
         logger.info(
             f"Generated signals: {(df['signal'] == 1).sum()} buys, "
@@ -295,9 +282,7 @@ class MeanReversionStrategy:
         return df
 
     def calculate_performance_metrics(
-        self,
-        signals_df: pd.DataFrame,
-        transaction_cost: float = 0.001
+        self, signals_df: pd.DataFrame, transaction_cost: float = 0.001
     ) -> Dict[str, float]:
         """
         Calculate strategy performance metrics.
@@ -319,22 +304,22 @@ class MeanReversionStrategy:
         df = signals_df.copy()
 
         # Calculate returns
-        df['price_return'] = df['price'].pct_change()
-        df['strategy_return'] = df['position'].shift(1) * df['price_return']
+        df["price_return"] = df["price"].pct_change()
+        df["strategy_return"] = df["position"].shift(1) * df["price_return"]
 
         # Apply transaction costs
-        df['trades'] = df['signal'].abs()
-        df['transaction_costs'] = df['trades'] * transaction_cost
-        df['net_return'] = df['strategy_return'] - df['transaction_costs']
+        df["trades"] = df["signal"].abs()
+        df["transaction_costs"] = df["trades"] * transaction_cost
+        df["net_return"] = df["strategy_return"] - df["transaction_costs"]
 
         # Cumulative returns
-        df['cumulative_return'] = (1 + df['net_return']).cumprod()
+        df["cumulative_return"] = (1 + df["net_return"]).cumprod()
 
         # Calculate metrics
-        total_return = df['cumulative_return'].iloc[-1] - 1
+        total_return = df["cumulative_return"].iloc[-1] - 1
 
         # Sharpe ratio (annualized, assuming daily data)
-        returns = df['net_return'].dropna()
+        returns = df["net_return"].dropna()
         sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
 
         # Sortino ratio (downside deviation)
@@ -343,42 +328,41 @@ class MeanReversionStrategy:
         sortino = returns.mean() / downside_std * np.sqrt(252) if downside_std > 0 else 0
 
         # Maximum drawdown
-        cumulative = df['cumulative_return']
+        cumulative = df["cumulative_return"]
         running_max = cumulative.expanding().max()
         drawdown = (cumulative - running_max) / running_max
         max_drawdown = drawdown.min()
 
         # Win rate
         profitable_trades = (returns > 0).sum()
-        total_trades = (df['trades'] > 0).sum()
+        total_trades = (df["trades"] > 0).sum()
         win_rate = profitable_trades / total_trades if total_trades > 0 else 0
 
         # Average holding period
-        position_changes = df['position'].diff().abs() > 0
+        position_changes = df["position"].diff().abs() > 0
         num_position_changes = position_changes.sum()
         avg_holding_period = len(df) / num_position_changes if num_position_changes > 0 else 0
 
         # Turnover (annualized)
-        turnover = (df['trades'].sum() / len(df)) * 252
+        turnover = (df["trades"].sum() / len(df)) * 252
 
         metrics = {
-            'total_return': total_return,
-            'sharpe_ratio': sharpe,
-            'sortino_ratio': sortino,
-            'max_drawdown': max_drawdown,
-            'win_rate': win_rate,
-            'avg_holding_period': avg_holding_period,
-            'turnover': turnover,
-            'num_trades': total_trades,
-            'half_life': self.half_life if self.half_life is not None else np.nan
+            "total_return": total_return,
+            "sharpe_ratio": sharpe,
+            "sortino_ratio": sortino,
+            "max_drawdown": max_drawdown,
+            "win_rate": win_rate,
+            "avg_holding_period": avg_holding_period,
+            "turnover": turnover,
+            "num_trades": total_trades,
+            "half_life": self.half_life if self.half_life is not None else np.nan,
         }
 
         return metrics
 
 
 def optimize_parameters(
-    prices: pd.Series,
-    param_grid: Optional[Dict] = None
+    prices: pd.Series, param_grid: Optional[Dict] = None
 ) -> Tuple[MeanReversionConfig, Dict[str, float]]:
     """
     Optimize strategy parameters using grid search.
@@ -392,9 +376,9 @@ def optimize_parameters(
     """
     if param_grid is None:
         param_grid = {
-            'entry_z_score': [1.5, 2.0, 2.5],
-            'exit_z_score': [0.3, 0.5, 0.7],
-            'lookback_window': [20, 30, 40]
+            "entry_z_score": [1.5, 2.0, 2.5],
+            "exit_z_score": [0.3, 0.5, 0.7],
+            "lookback_window": [20, 30, 40],
         }
 
     best_sharpe = -np.inf
@@ -429,15 +413,12 @@ def optimize_parameters(
         metrics = strategy.calculate_performance_metrics(signals)
 
         # Select based on Sharpe ratio
-        if metrics['sharpe_ratio'] > best_sharpe:
-            best_sharpe = metrics['sharpe_ratio']
+        if metrics["sharpe_ratio"] > best_sharpe:
+            best_sharpe = metrics["sharpe_ratio"]
             best_config = config
             best_metrics = metrics
 
-    logger.info(
-        f"Optimization complete. Best Sharpe: {best_sharpe:.3f}, "
-        f"Config: {best_config}"
-    )
+    logger.info(f"Optimization complete. Best Sharpe: {best_sharpe:.3f}, " f"Config: {best_config}")
 
     return best_config, best_metrics
 
@@ -448,7 +429,7 @@ if __name__ == "__main__":
 
     # Generate synthetic price data (replace with real data)
     np.random.seed(42)
-    dates = pd.date_range('2020-01-01', '2024-01-01', freq='D')
+    dates = pd.date_range("2020-01-01", "2024-01-01", freq="D")
 
     # Mean-reverting process
     prices = pd.Series(50 + np.cumsum(np.random.randn(len(dates)) * 0.5), index=dates)
@@ -464,9 +445,9 @@ if __name__ == "__main__":
     # Calculate performance
     metrics = strategy.calculate_performance_metrics(signals)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MEAN REVERSION STRATEGY - PERFORMANCE METRICS")
-    print("="*60)
+    print("=" * 60)
     for key, value in metrics.items():
         if isinstance(value, float):
             print(f"{key:25s}: {value:10.4f}")

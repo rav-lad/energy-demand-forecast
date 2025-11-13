@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-# train_tft.py
+"""Temporal Fusion Transformer (TFT) model training for energy demand forecasting.
+
+This module implements training for the Temporal Fusion Transformer, a deep
+learning architecture for multi-horizon time series forecasting with
+interpretable attention mechanisms.
+"""
 
 import argparse
 import sys
@@ -9,7 +14,7 @@ import pandas as pd
 import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data.encoders import MultiNormalizer, TorchNormalizer
 from pytorch_forecasting.metrics import QuantileLoss
 
@@ -26,6 +31,15 @@ from data_processing.transformation import transform_dl
 
 
 def split_train_val(df: pd.DataFrame, val_size: float = 0.2):
+    """Split time series data into training and validation sets.
+
+    Args:
+        df: Input DataFrame with time series data
+        val_size: Fraction of data to use for validation (default 0.2)
+
+    Returns:
+        Tuple of (train_df, val_df) DataFrames
+    """
     df_sorted = df.sort_values("date").reset_index(drop=True)
     unique_dates = df_sorted["date"].unique()
     n_val = int(len(unique_dates) * val_size)
@@ -37,9 +51,15 @@ def split_train_val(df: pd.DataFrame, val_size: float = 0.2):
 
 
 def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
-    print(
-        f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}"
-    )
+    """Train Temporal Fusion Transformer model for energy demand forecasting.
+
+    Args:
+        freq: Data frequency, either "daily" or "hourly"
+        max_epochs: Maximum number of training epochs
+        batch_size: Batch size for training
+        gpus: Number of GPUs to use (0 for CPU training)
+    """
+    print(f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}")
 
     # 1) Load and transform dataset
     df = pd.read_csv(DATA_DIR / f"train_{freq}.csv")
@@ -91,12 +111,8 @@ def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
 
     # 4) DataLoaders
     val_dataset = TimeSeriesDataSet.from_dataset(training, df_val)
-    train_loader = training.to_dataloader(
-        train=True, batch_size=batch_size, num_workers=4
-    )
-    val_loader = val_dataset.to_dataloader(
-        train=False, batch_size=batch_size, num_workers=4
-    )
+    train_loader = training.to_dataloader(train=True, batch_size=batch_size, num_workers=4)
+    val_loader = val_dataset.to_dataloader(train=False, batch_size=batch_size, num_workers=4)
 
     # 5) Model
     model = TemporalFusionTransformer.from_dataset(
@@ -129,9 +145,7 @@ def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
         ],
     )
     trainer.fit(model, train_loader, val_loader)
-    print(
-        "Best model saved to:", (CHECKPOINT_DIR / "checkpoints/best_tft.ckpt").resolve()
-    )
+    print("Best model saved to:", (CHECKPOINT_DIR / "checkpoints/best_tft.ckpt").resolve())
 
 
 if __name__ == "__main__":

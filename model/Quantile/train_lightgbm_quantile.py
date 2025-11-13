@@ -1,7 +1,16 @@
-import pandas as pd
-import numpy as np
-import joblib, json
+"""LightGBM quantile regression model training for probabilistic forecasting.
+
+This module trains LightGBM quantile regression models to generate probabilistic
+energy demand forecasts at multiple quantile levels (e.g., 5th, 50th, 95th
+percentiles).
+"""
+
+import json
 from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
 from lightgbm import LGBMRegressor, early_stopping, log_evaluation
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit
@@ -20,6 +29,16 @@ QUANTILES = [0.05, 0.5, 0.95]
 
 
 def train_lightgbm_quantile(frequency: str, lags: str):
+    """Train LightGBM quantile regression models for probabilistic forecasts.
+
+    Trains separate models for each target variable (electricity and gas) and
+    each quantile level. Uses time series cross-validation to select the best
+    model across folds.
+
+    Args:
+        frequency: Data frequency, either "daily" or "hourly"
+        lags: Whether to include lag features, either "with" or "without"
+    """
     lags_bool = lags == "with"
     suffix = "withlags" if lags_bool else "withoutlags"
 
@@ -27,9 +46,7 @@ def train_lightgbm_quantile(frequency: str, lags: str):
     df_raw = pd.read_csv(RAW_DIR / f"train_{frequency}.csv")
 
     # 2) Transform data
-    df = transform_lightgbm_quantile(
-        df_raw, frequency=frequency, save=True, lags=lags_bool
-    )
+    df = transform_lightgbm_quantile(df_raw, frequency=frequency, save=True, lags=lags_bool)
 
     # 3) Split X / y
     y = df[["conso_elec_mw", "conso_gaz_mw"]]
@@ -64,9 +81,7 @@ def train_lightgbm_quantile(frequency: str, lags: str):
                 X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
                 y_train, y_val = y_target[train_idx], y_target[val_idx]
 
-                model = LGBMRegressor(
-                    objective="quantile", alpha=q, random_state=42, **params
-                )
+                model = LGBMRegressor(objective="quantile", alpha=q, random_state=42, **params)
 
                 model.fit(
                     X_train,

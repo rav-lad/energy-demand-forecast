@@ -19,14 +19,15 @@ Date: 2025-11-12
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-import pandas as pd
-import numpy as np
+from typing import Dict, List, Optional, Tuple
 
-from .backtesting_engine import BacktestingEngine, BacktestConfig
-from ..analytics.performance_attribution import PerformanceAttributor, AttributionMetrics
-from ..risk_management.risk_manager import RiskManager, RiskLimits
+import numpy as np
+import pandas as pd
+
+from ..analytics.performance_attribution import AttributionMetrics, PerformanceAttributor
+from ..risk_management.risk_manager import RiskLimits, RiskManager
+from .backtesting_engine import BacktestConfig, BacktestingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +104,14 @@ class IntegratedBacktester:
         logger.info(f"  Risk management: {config.enable_risk_management}")
         logger.info(f"  Attribution: {config.benchmark_returns is not None}")
 
-    def run(self, price_data: pd.DataFrame, signals: pd.DataFrame,
-            symbol: str = 'ENERGY',
-            benchmark_returns: Optional[pd.Series] = None,
-            factor_returns: Optional[pd.DataFrame] = None) -> Dict:
+    def run(
+        self,
+        price_data: pd.DataFrame,
+        signals: pd.DataFrame,
+        symbol: str = "ENERGY",
+        benchmark_returns: Optional[pd.Series] = None,
+        factor_returns: Optional[pd.DataFrame] = None,
+    ) -> Dict:
         """
         Run integrated backtest with attribution.
 
@@ -125,9 +130,9 @@ class IntegratedBacktester:
                 - risk_metrics: Risk management metrics
                 - report: Summary report (if enabled)
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("Integrated Backtesting with Performance Attribution")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         # Phase 1: Run core backtest
         logger.info("\n[1/4] Running backtest...")
@@ -147,30 +152,26 @@ class IntegratedBacktester:
         attribution = self._compute_attribution(
             backtest_results,
             benchmark_returns or self.config.benchmark_returns,
-            factor_returns or self.config.factor_returns
+            factor_returns or self.config.factor_returns,
         )
 
         # Phase 4: Generate report
         logger.info("\n[4/4] Generating report...")
-        report = self._generate_report(
-            performance_metrics,
-            attribution,
-            risk_metrics
-        )
+        report = self._generate_report(performance_metrics, attribution, risk_metrics)
 
         results = {
-            'backtest_results': backtest_results,
-            'performance_metrics': performance_metrics,
-            'attribution': attribution,
-            'risk_metrics': risk_metrics,
-            'report': report,
-            'equity_curve': backtest_results,
-            'trades': self.engine.trades
+            "backtest_results": backtest_results,
+            "performance_metrics": performance_metrics,
+            "attribution": attribution,
+            "risk_metrics": risk_metrics,
+            "report": report,
+            "equity_curve": backtest_results,
+            "trades": self.engine.trades,
         }
 
-        logger.info("\n" + "="*80)
+        logger.info("\n" + "=" * 80)
         logger.info("Integrated Backtesting Complete")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         # Print summary
         if report:
@@ -188,37 +189,41 @@ class IntegratedBacktester:
         Returns:
             risk_metrics: Dictionary of risk metrics
         """
-        if 'returns' not in backtest_results.columns:
-            backtest_results['returns'] = backtest_results['equity'].pct_change()
+        if "returns" not in backtest_results.columns:
+            backtest_results["returns"] = backtest_results["equity"].pct_change()
 
-        returns = backtest_results['returns'].dropna()
+        returns = backtest_results["returns"].dropna()
 
         risk_metrics = {}
 
         # VaR/CVaR
         if self.risk_manager:
-            var_95 = self.risk_manager.calculate_var(returns, 0.95, method='historical')
+            var_95 = self.risk_manager.calculate_var(returns, 0.95, method="historical")
             cvar_95 = self.risk_manager.calculate_cvar(returns, 0.95)
 
-            risk_metrics['var_95'] = var_95
-            risk_metrics['cvar_95'] = cvar_95
+            risk_metrics["var_95"] = var_95
+            risk_metrics["cvar_95"] = cvar_95
 
         # Volatility metrics
-        risk_metrics['daily_volatility'] = returns.std()
-        risk_metrics['annualized_volatility'] = returns.std() * np.sqrt(252)
+        risk_metrics["daily_volatility"] = returns.std()
+        risk_metrics["annualized_volatility"] = returns.std() * np.sqrt(252)
 
         # Downside risk
         downside_returns = returns[returns < 0]
-        risk_metrics['downside_deviation'] = downside_returns.std() * np.sqrt(252)
+        risk_metrics["downside_deviation"] = downside_returns.std() * np.sqrt(252)
 
         # Sortino ratio
         excess_return = returns.mean() * 252
-        sortino = excess_return / risk_metrics['downside_deviation'] if risk_metrics['downside_deviation'] > 0 else 0
-        risk_metrics['sortino_ratio'] = sortino
+        sortino = (
+            excess_return / risk_metrics["downside_deviation"]
+            if risk_metrics["downside_deviation"] > 0
+            else 0
+        )
+        risk_metrics["sortino_ratio"] = sortino
 
         # Skewness and kurtosis
-        risk_metrics['skewness'] = returns.skew()
-        risk_metrics['kurtosis'] = returns.kurtosis()
+        risk_metrics["skewness"] = returns.skew()
+        risk_metrics["kurtosis"] = returns.kurtosis()
 
         logger.info(f"  VaR (95%): {risk_metrics.get('var_95', 0):.2%}")
         logger.info(f"  CVaR (95%): {risk_metrics.get('cvar_95', 0):.2%}")
@@ -226,9 +231,12 @@ class IntegratedBacktester:
 
         return risk_metrics
 
-    def _compute_attribution(self, backtest_results: pd.DataFrame,
-                            benchmark_returns: Optional[pd.Series],
-                            factor_returns: Optional[pd.DataFrame]) -> Dict:
+    def _compute_attribution(
+        self,
+        backtest_results: pd.DataFrame,
+        benchmark_returns: Optional[pd.Series],
+        factor_returns: Optional[pd.DataFrame],
+    ) -> Dict:
         """
         Compute performance attribution.
 
@@ -242,10 +250,10 @@ class IntegratedBacktester:
         """
         attribution = {}
 
-        if 'returns' not in backtest_results.columns:
-            backtest_results['returns'] = backtest_results['equity'].pct_change()
+        if "returns" not in backtest_results.columns:
+            backtest_results["returns"] = backtest_results["equity"].pct_change()
 
-        strategy_returns = backtest_results['returns'].dropna()
+        strategy_returns = backtest_results["returns"].dropna()
 
         # Alpha/Beta decomposition
         if benchmark_returns is not None:
@@ -258,20 +266,18 @@ class IntegratedBacktester:
 
             # Calculate alpha/beta
             alpha, beta, r_squared = self.attributor.calculate_alpha_beta(
-                strategy_aligned,
-                benchmark_aligned
+                strategy_aligned, benchmark_aligned
             )
 
             # Information Ratio
             info_ratio = self.attributor.calculate_information_ratio(
-                strategy_aligned,
-                benchmark_aligned
+                strategy_aligned, benchmark_aligned
             )
 
-            attribution['alpha'] = alpha
-            attribution['beta'] = beta
-            attribution['r_squared'] = r_squared
-            attribution['information_ratio'] = info_ratio
+            attribution["alpha"] = alpha
+            attribution["beta"] = beta
+            attribution["r_squared"] = r_squared
+            attribution["information_ratio"] = info_ratio
 
             logger.info(f"    Alpha: {alpha:.2%} (annualized)")
             logger.info(f"    Beta: {beta:.3f}")
@@ -291,24 +297,22 @@ class IntegratedBacktester:
             factors_aligned = factor_returns.loc[common_index]
 
             # Factor attribution
-            factor_attr = self.attributor.factor_attribution(
-                strategy_aligned,
-                factors_aligned
-            )
+            factor_attr = self.attributor.factor_attribution(strategy_aligned, factors_aligned)
 
-            attribution['factor_loadings'] = factor_attr['factor_loadings']
-            attribution['factor_contributions'] = factor_attr['factor_contributions']
-            attribution['factor_r_squared'] = factor_attr['r_squared']
+            attribution["factor_loadings"] = factor_attr["factor_loadings"]
+            attribution["factor_contributions"] = factor_attr["factor_contributions"]
+            attribution["factor_r_squared"] = factor_attr["r_squared"]
 
             logger.info(f"    Factor R²: {factor_attr['r_squared']:.3f}")
-            for factor, loading in factor_attr['factor_loadings'].items():
-                contrib = factor_attr['factor_contributions'][factor]
+            for factor, loading in factor_attr["factor_loadings"].items():
+                contrib = factor_attr["factor_contributions"][factor]
                 logger.info(f"    {factor}: loading={loading:.3f}, contribution={contrib:.2%}")
 
         return attribution
 
-    def _generate_report(self, performance_metrics: Dict,
-                        attribution: Dict, risk_metrics: Dict) -> str:
+    def _generate_report(
+        self, performance_metrics: Dict, attribution: Dict, risk_metrics: Dict
+    ) -> str:
         """
         Generate comprehensive backtest report.
 
@@ -321,17 +325,19 @@ class IntegratedBacktester:
             report: Formatted report string
         """
         lines = []
-        lines.append("="*80)
+        lines.append("=" * 80)
         lines.append("INTEGRATED BACKTEST REPORT")
-        lines.append("="*80)
+        lines.append("=" * 80)
         lines.append("")
 
         # Performance Summary
         lines.append("PERFORMANCE SUMMARY")
-        lines.append("-"*80)
+        lines.append("-" * 80)
         lines.append(f"Total Return:           {performance_metrics['total_return']:>10.2%}")
         lines.append(f"Annualized Return:      {performance_metrics['annualized_return']:>10.2%}")
-        lines.append(f"Annualized Volatility:  {performance_metrics['annualized_volatility']:>10.2%}")
+        lines.append(
+            f"Annualized Volatility:  {performance_metrics['annualized_volatility']:>10.2%}"
+        )
         lines.append(f"Sharpe Ratio:           {performance_metrics['sharpe_ratio']:>10.3f}")
         lines.append(f"Sortino Ratio:          {risk_metrics.get('sortino_ratio', 0):>10.3f}")
         lines.append(f"Maximum Drawdown:       {performance_metrics['max_drawdown']:>10.2%}")
@@ -343,30 +349,30 @@ class IntegratedBacktester:
         # Attribution
         if attribution:
             lines.append("PERFORMANCE ATTRIBUTION")
-            lines.append("-"*80)
+            lines.append("-" * 80)
 
-            if 'alpha' in attribution:
+            if "alpha" in attribution:
                 lines.append(f"Alpha (annualized):     {attribution['alpha']:>10.2%}")
                 lines.append(f"Beta:                   {attribution['beta']:>10.3f}")
                 lines.append(f"R-squared:              {attribution['r_squared']:>10.3f}")
                 lines.append(f"Information Ratio:      {attribution['information_ratio']:>10.3f}")
                 lines.append("")
 
-            if 'factor_loadings' in attribution:
+            if "factor_loadings" in attribution:
                 lines.append("Factor Loadings:")
-                for factor, loading in attribution['factor_loadings'].items():
-                    contrib = attribution['factor_contributions'][factor]
+                for factor, loading in attribution["factor_loadings"].items():
+                    contrib = attribution["factor_contributions"][factor]
                     lines.append(f"  {factor:20s} {loading:>8.3f}  (contrib: {contrib:>7.2%})")
                 lines.append(f"Factor R-squared:       {attribution['factor_r_squared']:>10.3f}")
                 lines.append("")
 
         # Risk Metrics
         lines.append("RISK METRICS")
-        lines.append("-"*80)
+        lines.append("-" * 80)
         lines.append(f"Daily Volatility:       {risk_metrics['daily_volatility']:>10.4f}")
         lines.append(f"Downside Deviation:     {risk_metrics['downside_deviation']:>10.2%}")
 
-        if 'var_95' in risk_metrics:
+        if "var_95" in risk_metrics:
             lines.append(f"VaR (95%):              {risk_metrics['var_95']:>10.2%}")
             lines.append(f"CVaR (95%):             {risk_metrics['cvar_95']:>10.2%}")
 
@@ -376,23 +382,27 @@ class IntegratedBacktester:
 
         # Transaction Costs
         lines.append("TRANSACTION COSTS")
-        lines.append("-"*80)
-        lines.append(f"Total Commission:       {performance_metrics['total_commission']:>10,.2f} EUR")
+        lines.append("-" * 80)
+        lines.append(
+            f"Total Commission:       {performance_metrics['total_commission']:>10,.2f} EUR"
+        )
         lines.append(f"Total Slippage:         {performance_metrics['total_slippage']:>10,.2f} EUR")
-        total_costs = performance_metrics['total_commission'] + performance_metrics['total_slippage']
+        total_costs = (
+            performance_metrics["total_commission"] + performance_metrics["total_slippage"]
+        )
         lines.append(f"Total Costs:            {total_costs:>10,.2f} EUR")
         cost_pct = total_costs / self.config.backtest_config.initial_capital
         lines.append(f"Cost as % of Capital:   {cost_pct:>10.2%}")
         lines.append("")
 
-        lines.append("="*80)
+        lines.append("=" * 80)
 
         report = "\n".join(lines)
 
         # Save report if path specified
         if self.config.report_path:
             try:
-                with open(self.config.report_path, 'w') as f:
+                with open(self.config.report_path, "w") as f:
                     f.write(report)
                 logger.info(f"Report saved to {self.config.report_path}")
             except Exception as e:
@@ -400,9 +410,12 @@ class IntegratedBacktester:
 
         return report
 
-    def compare_strategies(self, strategies: Dict[str, Tuple],
-                          price_data: pd.DataFrame,
-                          benchmark_returns: Optional[pd.Series] = None) -> pd.DataFrame:
+    def compare_strategies(
+        self,
+        strategies: Dict[str, Tuple],
+        price_data: pd.DataFrame,
+        benchmark_returns: Optional[pd.Series] = None,
+    ) -> pd.DataFrame:
         """
         Compare multiple strategies side-by-side.
 
@@ -414,9 +427,9 @@ class IntegratedBacktester:
         Returns:
             comparison: DataFrame with strategy comparison
         """
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info("Strategy Comparison")
-        logger.info("="*80)
+        logger.info("=" * 80)
 
         results = []
 
@@ -425,38 +438,36 @@ class IntegratedBacktester:
 
             # Run backtest
             strategy_results = self.run(
-                price_data=price_data,
-                signals=signals,
-                benchmark_returns=benchmark_returns
+                price_data=price_data, signals=signals, benchmark_returns=benchmark_returns
             )
 
             # Extract key metrics
-            perf = strategy_results['performance_metrics']
-            attr = strategy_results['attribution']
-            risk = strategy_results['risk_metrics']
+            perf = strategy_results["performance_metrics"]
+            attr = strategy_results["attribution"]
+            risk = strategy_results["risk_metrics"]
 
             row = {
-                'strategy': name,
-                'total_return': perf['total_return'],
-                'sharpe_ratio': perf['sharpe_ratio'],
-                'sortino_ratio': risk.get('sortino_ratio', 0),
-                'max_drawdown': perf['max_drawdown'],
-                'win_rate': perf['win_rate'],
-                'alpha': attr.get('alpha', np.nan),
-                'beta': attr.get('beta', np.nan),
-                'information_ratio': attr.get('information_ratio', np.nan),
-                'var_95': risk.get('var_95', np.nan),
-                'total_trades': perf['total_trades']
+                "strategy": name,
+                "total_return": perf["total_return"],
+                "sharpe_ratio": perf["sharpe_ratio"],
+                "sortino_ratio": risk.get("sortino_ratio", 0),
+                "max_drawdown": perf["max_drawdown"],
+                "win_rate": perf["win_rate"],
+                "alpha": attr.get("alpha", np.nan),
+                "beta": attr.get("beta", np.nan),
+                "information_ratio": attr.get("information_ratio", np.nan),
+                "var_95": risk.get("var_95", np.nan),
+                "total_trades": perf["total_trades"],
             }
 
             results.append(row)
 
         comparison_df = pd.DataFrame(results)
-        comparison_df.set_index('strategy', inplace=True)
+        comparison_df.set_index("strategy", inplace=True)
 
-        logger.info("\n" + "="*80)
+        logger.info("\n" + "=" * 80)
         logger.info("STRATEGY COMPARISON SUMMARY")
-        logger.info("="*80)
+        logger.info("=" * 80)
         print("\n" + comparison_df.to_string())
 
         return comparison_df

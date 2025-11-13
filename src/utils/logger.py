@@ -16,13 +16,13 @@ Usage:
     logger.error("Error occurred", exc_info=True)
 """
 
+import json
 import logging
-from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
-from pathlib import Path
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from pathlib import Path
 from typing import Optional
-import json
 
 
 # ANSI color codes for console output
@@ -235,9 +235,7 @@ if __name__ == "__main__":
     logger.critical("This is a critical message")
 
     # Test file logging
-    file_logger = setup_logger(
-        "test_file", log_file="outputs/logs/test.log", level=logging.DEBUG
-    )
+    file_logger = setup_logger("test_file", log_file="outputs/logs/test.log", level=logging.DEBUG)
 
     file_logger.info("This goes to both console and file")
 

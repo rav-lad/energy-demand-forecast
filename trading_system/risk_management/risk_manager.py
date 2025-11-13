@@ -12,12 +12,13 @@ Author: Quant Research Team
 Date: 2024-11-12
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
 from scipy import stats
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +83,7 @@ class RiskManager:
         logger.info(f"Initialized Risk Manager with limits: {self.limits}")
 
     def calculate_var(
-        self,
-        returns: pd.Series,
-        confidence_level: float = 0.95,
-        method: str = 'historical'
+        self, returns: pd.Series, confidence_level: float = 0.95, method: str = "historical"
     ) -> float:
         """
         Calculate Value at Risk (VaR).
@@ -111,18 +109,18 @@ class RiskManager:
 
         returns_clean = returns.dropna()
 
-        if method == 'historical':
+        if method == "historical":
             # Historical VaR: percentile of actual returns
             var = -np.percentile(returns_clean, (1 - confidence_level) * 100)
 
-        elif method == 'parametric':
+        elif method == "parametric":
             # Parametric VaR: assume normal distribution
             mu = returns_clean.mean()
             sigma = returns_clean.std()
             z_score = stats.norm.ppf(1 - confidence_level)
             var = -(mu + z_score * sigma)
 
-        elif method == 'monte_carlo':
+        elif method == "monte_carlo":
             # Monte Carlo VaR: simulate future returns
             mu = returns_clean.mean()
             sigma = returns_clean.std()
@@ -136,11 +134,7 @@ class RiskManager:
 
         return var
 
-    def calculate_cvar(
-        self,
-        returns: pd.Series,
-        confidence_level: float = 0.95
-    ) -> float:
+    def calculate_cvar(self, returns: pd.Series, confidence_level: float = 0.95) -> float:
         """
         Calculate Conditional VaR (CVaR / Expected Shortfall).
 
@@ -174,11 +168,7 @@ class RiskManager:
 
         return cvar
 
-    def check_var_limit(
-        self,
-        current_var: float,
-        portfolio_value: float
-    ) -> Tuple[bool, str]:
+    def check_var_limit(self, current_var: float, portfolio_value: float) -> Tuple[bool, str]:
         """
         Check if VaR is within limits.
 
@@ -200,10 +190,7 @@ class RiskManager:
 
         return True, "VaR within limits"
 
-    def calculate_drawdown(
-        self,
-        equity_curve: pd.Series
-    ) -> Tuple[pd.Series, float, int]:
+    def calculate_drawdown(self, equity_curve: pd.Series) -> Tuple[pd.Series, float, int]:
         """
         Calculate drawdown statistics.
 
@@ -231,10 +218,7 @@ class RiskManager:
 
         return drawdown, max_drawdown, current_drawdown_duration
 
-    def check_drawdown_limit(
-        self,
-        equity_curve: pd.Series
-    ) -> Tuple[bool, Dict[str, float]]:
+    def check_drawdown_limit(self, equity_curve: pd.Series) -> Tuple[bool, Dict[str, float]]:
         """
         Check if drawdown is within limits.
 
@@ -249,9 +233,9 @@ class RiskManager:
         current_dd = drawdown_series.iloc[-1] if len(drawdown_series) > 0 else 0
 
         metrics = {
-            'current_drawdown': current_dd,
-            'max_drawdown': max_dd,
-            'drawdown_duration': dd_duration
+            "current_drawdown": current_dd,
+            "max_drawdown": max_dd,
+            "drawdown_duration": dd_duration,
         }
 
         # Check if should stop trading
@@ -274,9 +258,7 @@ class RiskManager:
         return True, metrics
 
     def check_position_limits(
-        self,
-        position_size: float,
-        current_positions: Optional[Dict[str, float]] = None
+        self, position_size: float, current_positions: Optional[Dict[str, float]] = None
     ) -> Tuple[bool, str]:
         """
         Check if position size is within limits.
@@ -309,10 +291,7 @@ class RiskManager:
         return True, "Position within limits"
 
     def calculate_leverage(
-        self,
-        positions: Dict[str, float],
-        prices: Dict[str, float],
-        capital: float
+        self, positions: Dict[str, float], prices: Dict[str, float], capital: float
     ) -> float:
         """
         Calculate current leverage ratio.
@@ -328,8 +307,7 @@ class RiskManager:
             Leverage ratio
         """
         total_notional = sum(
-            abs(positions.get(asset, 0)) * prices.get(asset, 0)
-            for asset in positions
+            abs(positions.get(asset, 0)) * prices.get(asset, 0) for asset in positions
         )
 
         leverage = total_notional / capital if capital > 0 else 0
@@ -340,7 +318,7 @@ class RiskManager:
         self,
         positions: Dict[str, float],
         prices: Dict[str, float],
-        scenarios: Dict[str, Dict[str, float]]
+        scenarios: Dict[str, Dict[str, float]],
     ) -> pd.DataFrame:
         """
         Perform stress testing under various scenarios.
@@ -366,14 +344,18 @@ class RiskManager:
                     pnl = position * (shocked_price - current_price)
                     scenario_pnl += pnl
 
-            results.append({
-                'scenario': scenario_name,
-                'pnl': scenario_pnl,
-                'pnl_pct': scenario_pnl / sum(
-                    abs(pos) * prices.get(asset, 0)
-                    for asset, pos in positions.items()
-                ) if positions else 0
-            })
+            results.append(
+                {
+                    "scenario": scenario_name,
+                    "pnl": scenario_pnl,
+                    "pnl_pct": (
+                        scenario_pnl
+                        / sum(abs(pos) * prices.get(asset, 0) for asset, pos in positions.items())
+                        if positions
+                        else 0
+                    ),
+                }
+            )
 
         return pd.DataFrame(results)
 
@@ -381,7 +363,7 @@ class RiskManager:
         self,
         positions: Dict[str, float],
         returns: pd.DataFrame,  # Returns for each asset
-        confidence_level: float = 0.95
+        confidence_level: float = 0.95,
     ) -> float:
         """
         Calculate portfolio VaR accounting for correlations.
@@ -415,7 +397,7 @@ class RiskManager:
         signal_strength: float,
         volatility: float,
         correlation_to_portfolio: float = 0.0,
-        risk_budget: float = 0.01
+        risk_budget: float = 0.01,
     ) -> float:
         """
         Calculate risk-adjusted position size.
@@ -464,31 +446,15 @@ def create_stress_scenarios() -> Dict[str, Dict[str, float]]:
         Dict of scenarios with price shocks
     """
     scenarios = {
-        'market_crash': {
-            'price_FR': -0.30,  # -30%
-            'price_DE': -0.28,
-            'price_ES': -0.32
+        "market_crash": {"price_FR": -0.30, "price_DE": -0.28, "price_ES": -0.32},  # -30%
+        "energy_crisis": {"price_FR": 0.50, "price_DE": 0.55, "price_ES": 0.48},  # +50%
+        "renewable_surge": {"price_FR": -0.15, "price_DE": -0.20, "price_ES": -0.10},  # -15%
+        "cold_snap": {"price_FR": 0.40, "price_DE": 0.35, "price_ES": 0.30},  # +40%
+        "correlation_breakdown": {
+            "price_FR": 0.20,
+            "price_DE": -0.15,  # Opposite direction
+            "price_ES": 0.25,
         },
-        'energy_crisis': {
-            'price_FR': 0.50,  # +50%
-            'price_DE': 0.55,
-            'price_ES': 0.48
-        },
-        'renewable_surge': {
-            'price_FR': -0.15,  # -15%
-            'price_DE': -0.20,
-            'price_ES': -0.10
-        },
-        'cold_snap': {
-            'price_FR': 0.40,  # +40%
-            'price_DE': 0.35,
-            'price_ES': 0.30
-        },
-        'correlation_breakdown': {
-            'price_FR': 0.20,
-            'price_DE': -0.15,  # Opposite direction
-            'price_ES': 0.25
-        }
     }
 
     return scenarios
@@ -499,10 +465,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # Create risk manager
-    limits = RiskLimits(
-        max_var_daily=5000,
-        max_drawdown_pct=0.10
-    )
+    limits = RiskLimits(max_var_daily=5000, max_drawdown_pct=0.10)
     risk_mgr = RiskManager(limits)
 
     # Generate synthetic returns
@@ -510,12 +473,12 @@ if __name__ == "__main__":
     returns = pd.Series(np.random.randn(252) * 0.02)  # Daily returns, 2% vol
 
     # Calculate VaR
-    var_95 = risk_mgr.calculate_var(returns, 0.95, method='historical')
+    var_95 = risk_mgr.calculate_var(returns, 0.95, method="historical")
     cvar_95 = risk_mgr.calculate_cvar(returns, 0.95)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("RISK METRICS")
-    print("="*60)
+    print("=" * 60)
     print(f"VaR (95%):  {var_95:.4f}")
     print(f"CVaR (95%): {cvar_95:.4f}")
 
@@ -533,8 +496,8 @@ if __name__ == "__main__":
         print(f"{key:25s}: {value:.4f}")
 
     # Stress testing
-    positions = {'price_FR': 1000, 'price_DE': -800, 'price_ES': 500}
-    prices = {'price_FR': 50, 'price_DE': 48, 'price_ES': 52}
+    positions = {"price_FR": 1000, "price_DE": -800, "price_ES": 500}
+    prices = {"price_FR": 50, "price_DE": 48, "price_ES": 52}
 
     scenarios = create_stress_scenarios()
     stress_results = risk_mgr.stress_test(positions, prices, scenarios)

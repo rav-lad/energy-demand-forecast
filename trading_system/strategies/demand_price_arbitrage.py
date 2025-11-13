@@ -9,10 +9,11 @@ Strategy Logic:
 - SELL signal: Low demand predicted + high renewable production → prices likely to fall
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Optional, Tuple
 import logging
+from typing import Dict, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +61,7 @@ class DemandPriceArbitrageStrategy:
 
         logger.info(f"Initialized Demand-Price Arbitrage Strategy")
         logger.info(f"  Buy threshold: {buy_demand_threshold:.2f} (demand percentile)")
-        logger.info(
-            f"  Sell threshold: {sell_demand_threshold:.2f} (demand percentile)"
-        )
+        logger.info(f"  Sell threshold: {sell_demand_threshold:.2f} (demand percentile)")
         logger.info(f"  Renewable high: {renewable_high_threshold:.2f}")
         logger.info(f"  Renewable low: {renewable_low_threshold:.2f}")
 
@@ -145,22 +144,20 @@ class DemandPriceArbitrageStrategy:
 
         # Calculate residual load (demand - renewable production)
         # Assuming total capacity enables this calculation
-        signals_df["residual_load"] = predicted_demand * (
-            1 - signals_df["renewable_share"]
-        )
+        signals_df["residual_load"] = predicted_demand * (1 - signals_df["renewable_share"])
 
         # --- GENERATE BUY SIGNALS ---
         # Buy when: High demand + Low renewable production
-        buy_condition = (
-            signals_df["demand_percentile"] >= self.buy_demand_threshold
-        ) & (signals_df["renewable_share"] <= self.renewable_low_threshold)
+        buy_condition = (signals_df["demand_percentile"] >= self.buy_demand_threshold) & (
+            signals_df["renewable_share"] <= self.renewable_low_threshold
+        )
         signals_df.loc[buy_condition, "signal"] = 1
 
         # --- GENERATE SELL SIGNALS ---
         # Sell when: Low demand + High renewable production
-        sell_condition = (
-            signals_df["demand_percentile"] <= self.sell_demand_threshold
-        ) & (signals_df["renewable_share"] >= self.renewable_high_threshold)
+        sell_condition = (signals_df["demand_percentile"] <= self.sell_demand_threshold) & (
+            signals_df["renewable_share"] >= self.renewable_high_threshold
+        )
         signals_df.loc[sell_condition, "signal"] = -1
 
         # Calculate signal confidence (how extreme is the condition)
@@ -190,9 +187,7 @@ class DemandPriceArbitrageStrategy:
         # Calculate position size
         if self.use_confidence_scaling:
             # Scale position size by confidence (0.5x to 1.5x base size)
-            signals_df["position_size"] = self.base_position_size * (
-                0.5 + signals_df["confidence"]
-            )
+            signals_df["position_size"] = self.base_position_size * (0.5 + signals_df["confidence"])
         else:
             signals_df["position_size"] = self.base_position_size
 
@@ -216,9 +211,7 @@ class DemandPriceArbitrageStrategy:
 
         return signals_df
 
-    def analyze_signal_quality(
-        self, signals_df: pd.DataFrame, actual_prices: pd.Series
-    ) -> Dict:
+    def analyze_signal_quality(self, signals_df: pd.DataFrame, actual_prices: pd.Series) -> Dict:
         """
         Analyze the quality of generated signals by checking if they
         preceded favorable price movements.
@@ -243,9 +236,7 @@ class DemandPriceArbitrageStrategy:
             if len(buy_signals) > 0
             else 0
         )
-        avg_buy_return = (
-            buy_signals["forward_return"].mean() if len(buy_signals) > 0 else 0
-        )
+        avg_buy_return = buy_signals["forward_return"].mean() if len(buy_signals) > 0 else 0
 
         # Analyze sell signals
         sell_signals = signals_with_returns[signals_with_returns["signal"] == -1]
@@ -254,9 +245,7 @@ class DemandPriceArbitrageStrategy:
             if len(sell_signals) > 0
             else 0
         )
-        avg_sell_return = (
-            sell_signals["forward_return"].mean() if len(sell_signals) > 0 else 0
-        )
+        avg_sell_return = sell_signals["forward_return"].mean() if len(sell_signals) > 0 else 0
 
         metrics = {
             "buy_signals": len(buy_signals),
@@ -294,25 +283,16 @@ if __name__ == "__main__":
 
     # Synthetic demand with seasonality
     t = np.arange(len(dates))
-    demand = (
-        5000 + 1000 * np.sin(2 * np.pi * t / 365) + np.random.randn(len(dates)) * 200
-    )
+    demand = 5000 + 1000 * np.sin(2 * np.pi * t / 365) + np.random.randn(len(dates)) * 200
 
     # Synthetic renewable share
     renewable = (
-        0.3
-        + 0.2 * np.sin(2 * np.pi * t / 365 + np.pi / 2)
-        + np.random.randn(len(dates)) * 0.05
+        0.3 + 0.2 * np.sin(2 * np.pi * t / 365 + np.pi / 2) + np.random.randn(len(dates)) * 0.05
     )
     renewable = renewable.clip(0, 1)
 
     # Synthetic prices (correlated with demand, anti-correlated with renewables)
-    prices = (
-        50
-        + (demand - demand.mean()) / 100
-        - renewable * 20
-        + np.random.randn(len(dates)) * 5
-    )
+    prices = 50 + (demand - demand.mean()) / 100 - renewable * 20 + np.random.randn(len(dates)) * 5
 
     demand_series = pd.Series(demand, index=dates)
     renewable_series = pd.Series(renewable, index=dates)
@@ -328,9 +308,7 @@ if __name__ == "__main__":
 
     # Use first 6 months for calibration
     calibration_end = pd.Timestamp("2023-06-30")
-    strategy.calibrate(
-        demand_series[:calibration_end], renewable_series[:calibration_end]
-    )
+    strategy.calibrate(demand_series[:calibration_end], renewable_series[:calibration_end])
 
     # Generate signals for full period
     signals_df = strategy.generate_signals(demand_series, renewable_series)

@@ -1,5 +1,13 @@
-import pandas as pd
+"""Train-test split script for time series data.
+
+This script performs an 80/20 chronological split of the merged dataset
+into training and test sets, preserving temporal order for time series
+forecasting.
+"""
+
 from pathlib import Path
+
+import pandas as pd
 
 # Create the modified data directory if needed
 MODIFIED_DIR = Path("data/modified_data")

@@ -18,26 +18,25 @@ Usage:
     python scripts/benchmark_models.py --frequency daily --output results.csv
 """
 
-import sys
 import argparse
-import logging
-from pathlib import Path
-import time
-import pandas as pd
-import numpy as np
-from datetime import datetime
 import json
+import logging
+import sys
+import time
 import traceback
 import tracemalloc
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -64,9 +63,7 @@ class ModelBenchmark:
         """Load test data."""
         logger.info("Loading test data...")
 
-        test_file = (
-            project_root / "data" / "modified_data" / f"test_{self.frequency}.csv"
-        )
+        test_file = project_root / "data" / "modified_data" / f"test_{self.frequency}.csv"
 
         if not test_file.exists():
             raise FileNotFoundError(f"Test data not found: {test_file}")
@@ -156,9 +153,7 @@ class ModelBenchmark:
 
         if model_name == "xgboost":
             model_file = models_dir / "xgboost" / f"xgb_{self.frequency}.pkl"
-            scaler_file = (
-                models_dir / "scalers" / f"scaler_{self.frequency}_reglin_xgboost.pkl"
-            )
+            scaler_file = models_dir / "scalers" / f"scaler_{self.frequency}_reglin_xgboost.pkl"
 
         elif model_name == "lightgbm":
             # Load all 6 quantile models
@@ -178,12 +173,8 @@ class ModelBenchmark:
             scaler = None
 
         elif model_name in ["ridge", "lasso"]:
-            model_file = (
-                models_dir / "reg_lin" / f"{model_name}_classic_{self.frequency}.pkl"
-            )
-            scaler_file = (
-                models_dir / "scalers" / f"scaler_{self.frequency}_reglin_xgboost.pkl"
-            )
+            model_file = models_dir / "reg_lin" / f"{model_name}_classic_{self.frequency}.pkl"
+            scaler_file = models_dir / "scalers" / f"scaler_{self.frequency}_reglin_xgboost.pkl"
 
         elif model_name == "tft":
             # TFT requires different loading
@@ -300,7 +291,7 @@ class ModelBenchmark:
 
     def _calculate_metrics(self, y_true, y_pred):
         """Calculate performance metrics."""
-        from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+        from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
         # Ensure arrays
         y_true = np.array(y_true)
@@ -324,12 +315,8 @@ class ModelBenchmark:
 
         # Per-target metrics (assuming 2 targets: elec, gaz)
         if y_true.shape[1] == 2:
-            metrics["rmse_elec"] = np.sqrt(
-                mean_squared_error(y_true[:, 0], y_pred[:, 0])
-            )
-            metrics["rmse_gaz"] = np.sqrt(
-                mean_squared_error(y_true[:, 1], y_pred[:, 1])
-            )
+            metrics["rmse_elec"] = np.sqrt(mean_squared_error(y_true[:, 0], y_pred[:, 0]))
+            metrics["rmse_gaz"] = np.sqrt(mean_squared_error(y_true[:, 1], y_pred[:, 1]))
             metrics["mae_elec"] = mean_absolute_error(y_true[:, 0], y_pred[:, 0])
             metrics["mae_gaz"] = mean_absolute_error(y_true[:, 1], y_pred[:, 1])
             metrics["r2_elec"] = r2_score(y_true[:, 0], y_pred[:, 0])

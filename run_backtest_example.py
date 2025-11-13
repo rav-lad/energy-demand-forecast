@@ -11,20 +11,21 @@ Usage:
     python run_backtest_example.py
 """
 
-import sys
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import logging
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 # Add project root to path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+from trading_system.backtesting.backtest_engine import BacktestEngine
 from trading_system.strategies.demand_price_arbitrage import (
     DemandPriceArbitrageStrategy,
 )
-from trading_system.backtesting.backtest_engine import BacktestEngine
 from trading_system.utils.config_loader import get_config
 
 # Setup logging
@@ -61,9 +62,7 @@ def load_sample_data():
 
     # Synthetic renewable share (higher in summer)
     renewable_share = (
-        0.35
-        + 0.15 * np.sin(2 * np.pi * t / 365 + np.pi / 2)
-        + np.random.randn(n) * 0.05
+        0.35 + 0.15 * np.sin(2 * np.pi * t / 365 + np.pi / 2) + np.random.randn(n) * 0.05
     )
     renewable_share = np.clip(renewable_share, 0, 1)
 
@@ -116,29 +115,21 @@ def run_backtest(data, config):
     logger.info(
         f"  Calibration: {calibration_data.index[0].date()} to {calibration_data.index[-1].date()}"
     )
-    logger.info(
-        f"  Test:        {test_data.index[0].date()} to {test_data.index[-1].date()}"
-    )
+    logger.info(f"  Test:        {test_data.index[0].date()} to {test_data.index[-1].date()}")
 
     # Initialize strategy
     strategy_config = config.get("trading.demand_price_arbitrage", {})
 
     strategy = DemandPriceArbitrageStrategy(
-        buy_demand_threshold=strategy_config.get("signals", {}).get(
-            "buy_threshold", 0.95
-        ),
-        sell_demand_threshold=strategy_config.get("signals", {}).get(
-            "sell_threshold", 0.25
-        ),
+        buy_demand_threshold=strategy_config.get("signals", {}).get("buy_threshold", 0.95),
+        sell_demand_threshold=strategy_config.get("signals", {}).get("sell_threshold", 0.25),
         renewable_high_threshold=strategy_config.get("signals", {}).get(
             "renewable_threshold_high", 0.7
         ),
         renewable_low_threshold=strategy_config.get("signals", {}).get(
             "renewable_threshold_low", 0.3
         ),
-        base_position_size=strategy_config.get("position_sizing", {}).get(
-            "base_size", 1000
-        ),
+        base_position_size=strategy_config.get("position_sizing", {}).get("base_size", 1000),
         use_confidence_scaling=strategy_config.get("position_sizing", {}).get(
             "scale_with_confidence", True
         ),
@@ -149,9 +140,7 @@ def run_backtest(data, config):
     logger.info("STEP 1: Calibrating Strategy")
     logger.info("-" * 70)
 
-    strategy.calibrate(
-        calibration_data["predicted_demand"], calibration_data["renewable_share"]
-    )
+    strategy.calibrate(calibration_data["predicted_demand"], calibration_data["renewable_share"])
 
     # Generate signals
     logger.info("\n" + "-" * 70)
