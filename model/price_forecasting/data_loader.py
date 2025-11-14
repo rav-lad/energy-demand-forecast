@@ -5,12 +5,17 @@ price data based on market fundamentals. In production, this would be replaced
 with actual ENTSO-E day-ahead price data.
 """
 
+import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 
 def simulate_realistic_prices(
@@ -277,6 +282,65 @@ def prepare_price_forecasting_dataset(
         col
         for col in df.columns
         if col not in ["datetime_hour", target_col]
+    ]
+
+    return df, feature_cols
+
+
+def prepare_price_forecasting_with_fuel_prices(
+    data_path: str = "data/modified_data/energy_hourly_regional.csv",
+    target_col: str = "price",
+    include_fuel_prices: bool = True,
+    random_seed: int = 42,
+) -> Tuple[pd.DataFrame, list]:
+    """Prepare complete dataset for price forecasting with fuel price features.
+
+    This function extends prepare_price_forecasting_dataset by adding fuel price
+    features (TTF gas, EUA carbon, coal) and derived spreads (spark, dark, clean).
+
+    Args:
+        data_path: Path to hourly load data.
+        target_col: Target variable column name.
+        include_fuel_prices: Whether to include fuel price features.
+        random_seed: Random seed for reproducibility.
+
+    Returns:
+        tuple: (DataFrame with all features including fuel prices, list of feature column names)
+    """
+    # First, get base price forecasting dataset
+    df, _ = prepare_price_forecasting_dataset(data_path, target_col, random_seed)
+
+    if include_fuel_prices:
+        from data_collection.fuel_prices import generate_fuel_price_features
+
+        # Generate fuel price features
+        fuel_df = generate_fuel_price_features(
+            dates=df["datetime_hour"],
+            power_prices=df[target_col],
+            random_seed=random_seed,
+        )
+
+        # Merge with main dataset
+        df = pd.concat([df, fuel_df], axis=1)
+
+        # Add lag features for fuel prices (they affect future electricity prices)
+        for fuel_col in ["ttf_gas_price", "eua_carbon_price", "coal_price"]:
+            if fuel_col in df.columns:
+                for lag in [1, 24, 168]:  # 1h, 1day, 1week
+                    df[f"{fuel_col}_lag_{lag}h"] = df[fuel_col].shift(lag)
+
+        # Add lag features for spreads (important predictors)
+        for spread_col in ["spark_spread", "dark_spread"]:
+            if spread_col in df.columns:
+                for lag in [1, 24]:
+                    df[f"{spread_col}_lag_{lag}h"] = df[spread_col].shift(lag)
+
+        # Drop rows with NaN from new lags
+        df = df.dropna().reset_index(drop=True)
+
+    # Identify all feature columns
+    feature_cols = [
+        col for col in df.columns if col not in ["datetime_hour", target_col]
     ]
 
     return df, feature_cols
