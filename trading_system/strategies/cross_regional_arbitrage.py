@@ -493,7 +493,8 @@ class CrossRegionalArbitrageStrategy:
             returns = df["net_pnl"] / (capital_at_risk + 1)
             returns = returns.replace([np.inf, -np.inf], 0)
 
-            sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+            # Annualized Sharpe ratio (hourly data → 365 * 24 periods/year)
+            sharpe = returns.mean() / returns.std() * np.sqrt(365 * 24) if returns.std() > 0 else 0
 
             # Win rate
             profitable_trades = (df["net_pnl"] > 0).sum()

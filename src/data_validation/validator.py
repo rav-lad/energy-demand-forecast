@@ -410,7 +410,7 @@ class DataValidator:
         # If ground truth available, check prediction errors
         if y_true is not None:
             errors = np.abs(y_pred - y_true)
-            mape = np.mean(errors / (y_true + 1e-10)) * 100
+            mape = np.mean(errors / (y_true + 1e-8)) * 100
 
             self.validation_results.append(
                 ValidationResult(

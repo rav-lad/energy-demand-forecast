@@ -5,6 +5,7 @@ price data based on market fundamentals. In production, this would be replaced
 with actual ENTSO-E day-ahead price data.
 """
 
+import logging
 import sys
 from pathlib import Path
 from typing import Optional, Tuple
@@ -12,6 +13,8 @@ from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+logger = logging.getLogger(__name__)
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent
@@ -319,6 +322,25 @@ def prepare_price_forecasting_with_fuel_prices(
             power_prices=df[target_col],
             random_seed=random_seed,
         )
+
+        # Validate before merge
+        if len(df) != len(fuel_df):
+            logger.warning(
+                f"Length mismatch before merge: df={len(df)}, fuel_df={len(fuel_df)}. "
+                "Resetting indices to ensure proper alignment."
+            )
+            df = df.reset_index(drop=True)
+            fuel_df = fuel_df.reset_index(drop=True)
+            # Take minimum length to avoid misalignment
+            min_len = min(len(df), len(fuel_df))
+            df = df.iloc[:min_len]
+            fuel_df = fuel_df.iloc[:min_len]
+
+        # Check for duplicate columns
+        duplicate_cols = set(df.columns) & set(fuel_df.columns)
+        if duplicate_cols:
+            logger.warning(f"Duplicate columns found: {duplicate_cols}. Dropping from fuel_df.")
+            fuel_df = fuel_df.drop(columns=list(duplicate_cols))
 
         # Merge with main dataset
         df = pd.concat([df, fuel_df], axis=1)

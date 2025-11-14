@@ -34,6 +34,7 @@ class PriceForecastStrategy:
         position_size: float = 0.02,
         max_position: float = 0.10,
         confidence_scaling: bool = True,
+        max_holding_period: int = 72,
     ):
         """Initialize price forecast strategy.
 
@@ -43,12 +44,14 @@ class PriceForecastStrategy:
             position_size: Base position size (fraction of capital).
             max_position: Maximum position size (fraction of capital).
             confidence_scaling: Scale position by forecast confidence.
+            max_holding_period: Maximum hours to hold a position (default 72).
         """
         self.entry_threshold = entry_threshold
         self.exit_threshold = exit_threshold
         self.position_size = position_size
         self.max_position = max_position
         self.confidence_scaling = confidence_scaling
+        self.max_holding_period = max_holding_period
 
     def generate_signals(
         self,
@@ -98,17 +101,28 @@ class PriceForecastStrategy:
         df.loc[buy_signal, "raw_signal"] = 1
         df.loc[sell_signal, "raw_signal"] = -1
 
-        # Apply position persistence (hold until exit threshold)
+        # Apply position persistence (hold until exit threshold or max holding period)
         df["signal"] = df["raw_signal"]
         position = 0
+        position_age = 0
 
         for i in range(len(df)):
             if df["raw_signal"].iloc[i] != 0:
                 # New signal
                 position = df["raw_signal"].iloc[i]
-            elif abs(df["forecast_error"].iloc[i]) < self.exit_threshold:
-                # Exit: forecast converged to market
-                position = 0
+                position_age = 0
+            elif position != 0:
+                # Holding position
+                position_age += 1
+
+                # Exit if forecast converged to market
+                if abs(df["forecast_error"].iloc[i]) < self.exit_threshold:
+                    position = 0
+                    position_age = 0
+                # Exit if max holding period exceeded
+                elif position_age >= self.max_holding_period:
+                    position = 0
+                    position_age = 0
 
             df["signal"].iloc[i] = position
 
@@ -210,6 +224,7 @@ class RegimeAdaptiveStrategy(PriceForecastStrategy):
         position_size: float = 0.02,
         max_position: float = 0.10,
         regime_multipliers: Optional[Dict[str, float]] = None,
+        max_holding_period: int = 72,
     ):
         """Initialize regime-adaptive strategy.
 
@@ -219,12 +234,14 @@ class RegimeAdaptiveStrategy(PriceForecastStrategy):
             position_size: Base position size.
             max_position: Maximum position size.
             regime_multipliers: Threshold multipliers by regime.
+            max_holding_period: Maximum hours to hold a position (default 72).
         """
         super().__init__(
             entry_threshold=base_entry_threshold,
             exit_threshold=base_exit_threshold,
             position_size=position_size,
             max_position=max_position,
+            max_holding_period=max_holding_period,
         )
 
         self.base_entry_threshold = base_entry_threshold
