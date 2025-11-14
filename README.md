@@ -96,6 +96,89 @@ Realistic cost modeling ensures profitable strategies:
 
 ---
 
+## Recent Professional Upgrades
+
+### MLflow Experiment Tracking Infrastructure
+
+Professional-grade MLOps system ensuring reproducibility and systematic model comparison:
+- Automatic logging of hyperparameters, metrics, and artifacts
+- Model registry with versioning for production deployment
+- Experiment categorization (price_forecasting, load_forecasting, trading_strategies)
+- Best model selection utilities and performance comparison dashboards
+
+**Impact**: Enables systematic model development with complete reproducibility—critical for research validation and production deployment.
+
+### Direct Price Forecasting Models
+
+Upgraded from demand-only forecasting to direct electricity price prediction:
+
+**LightGBM Quantile Regression**:
+- Probabilistic forecasts (10th, 50th, 90th percentiles)
+- Uncertainty quantification for risk-aware trading
+- Spike detection capability
+
+**Ensemble Price Forecaster**:
+- Combines LightGBM (50%), Random Forest (30%), Ridge (20%)
+- Robust predictions across different market regimes
+- Reduced overfitting through model diversification
+
+**48 Engineered Features**: Calendar patterns, temporal lags (1h, 24h, 168h), rolling statistics (mean, std, min, max)
+
+**Why it matters**: In professional trading desks, **price drives P&L**, not demand. Direct price forecasting captures merit order non-linearities, fuel dynamics, and renewable intermittency.
+
+### Market Fundamentals Integration
+
+**Fuel Prices & Carbon** (24 features):
+- TTF Gas prices (Dutch hub, EUR/MWh)
+- EUA Carbon allowances (EU ETS, EUR/tCO₂)
+- Coal API2 prices (ARA benchmark)
+- Spark spread (gas-to-power margin)
+- Dark spread (coal-to-power margin)
+- Clean spread (fuel-switching indicator)
+
+**Simulation Models**:
+- Ornstein-Uhlenbeck process for mean-reverting gas prices
+- Geometric Brownian Motion for carbon (upward trend)
+- Correlation modeling for fuel substitution effects
+
+**Expected Impact** (on real data): Professional literature shows fuel prices explain 60-80% of electricity price variance. Integration expected to improve forecast accuracy by 20-30% RMSE.
+
+**Why it matters**: Electricity prices follow the **merit order curve**—the marginal plant (usually gas or coal) sets the price. Fuel costs are fundamental drivers.
+
+### Renewable Energy Forecasting
+
+Critical for modern markets (Germany >50% renewable penetration):
+
+**Wind Power** (9 features):
+- Power curve modeling (cubic relationship: P ∝ wind_speed³)
+- Cut-in, rated, cut-out regions (3/12/25 m/s)
+- Autocorrelated wind patterns (6-12h persistence)
+- Capacity factor (typical 25-35% in Europe)
+
+**Solar PV**:
+- Solar geometry (elevation angle, declination)
+- Cloud cover effects (stochastic, autocorrelated)
+- Panel efficiency + performance ratio
+- Capacity factor (typical 10-15% in Europe)
+
+**Derived Features**:
+- Renewable share (% of total load)
+- Curtailment risk (wasted renewable energy)
+- Net load (Load - Renewables → drives conventional plant dispatch)
+
+**Why it matters**: Renewables have **zero marginal cost**—they push fossil fuels down the merit order. Renewable share >70% → price collapse risk. Germany sees negative prices ~200 hours/year.
+
+### Feature Set Summary
+
+**Total Engineered Features: ~80**
+- Temporal: 15 (calendar patterns, cyclical encoding)
+- Price: 18 (lags, rolling statistics)
+- Load: 12 (current + lags + rolling stats)
+- Fuel prices: 24 (TTF gas, EUA carbon, coal, spreads)
+- Renewables: 9 (wind, solar, share, curtailment, net load)
+
+---
+
 ## System Architecture
 
 ### Complete ML Pipeline
