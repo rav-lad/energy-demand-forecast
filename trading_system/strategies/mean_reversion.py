@@ -214,8 +214,10 @@ class MeanReversionStrategy:
             df["price"].rolling(window=self.config.lookback_window, min_periods=1).std()
         )
 
-        # Calculate Z-score
-        df["z_score"] = (df["price"] - df["rolling_mean"]) / df["rolling_std"]
+        # Calculate Z-score with division-by-zero protection
+        # Minimum std threshold: 0.01 EUR/MWh (prevents division by zero)
+        MIN_STD = 0.01
+        df["z_score"] = (df["price"] - df["rolling_mean"]) / df["rolling_std"].clip(lower=MIN_STD)
         df["z_score"] = df["z_score"].fillna(0)
 
         # Generate raw signals
@@ -243,10 +245,10 @@ class MeanReversionStrategy:
             stop_loss = df["stop_loss"].iloc[i]
             z_score = df["z_score"].iloc[i]
 
-            # Stop-loss: force exit
-            if stop_loss:
+            # Stop-loss: force exit to flat position
+            if stop_loss and current_position != 0:
+                df["signal"].iloc[i] = -np.sign(current_position)  # Exit signal
                 current_position = 0
-                df["signal"].iloc[i] = -np.sign(current_position) if current_position != 0 else 0
 
             # Exit when Z-score crosses zero (mean)
             elif abs(z_score) < self.config.exit_z_score and current_position != 0:
@@ -318,9 +320,9 @@ class MeanReversionStrategy:
         # Calculate metrics
         total_return = df["cumulative_return"].iloc[-1] - 1
 
-        # Sharpe ratio (annualized, assuming daily data)
+        # Sharpe ratio (annualized for hourly data: 365 * 24 periods/year)
         returns = df["net_return"].dropna()
-        sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+        sharpe = returns.mean() / returns.std() * np.sqrt(365 * 24) if returns.std() > 0 else 0
 
         # Sortino ratio (downside deviation)
         downside_returns = returns[returns < 0]

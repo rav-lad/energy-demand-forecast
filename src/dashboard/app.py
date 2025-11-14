@@ -125,7 +125,7 @@ def calculate_metrics(actual: np.ndarray, pred: np.ndarray) -> dict:
 
     rmse = np.sqrt(mean_squared_error(actual, pred))
     mae = mean_absolute_error(actual, pred)
-    mape = np.mean(np.abs((actual - pred) / (actual + 1e-10))) * 100
+    mape = np.mean(np.abs((actual - pred) / (actual + 1e-8))) * 100
     r2 = r2_score(actual, pred)
 
     return {"RMSE": rmse, "MAE": mae, "MAPE": mape, "R²": r2}
@@ -514,7 +514,8 @@ elif page == "📈 Backtests":
 
     # Backtest metrics
     total_return = ((equity_curve[-1] - initial_capital) / initial_capital) * 100
-    sharpe_ratio = np.mean(returns) / np.std(returns) * np.sqrt(252)
+    # Annualized Sharpe ratio (hourly data: 365 * 24 periods/year)
+    sharpe_ratio = np.mean(returns) / np.std(returns) * np.sqrt(365 * 24)
     max_dd = ((equity_curve / equity_curve.cummax()) - 1).min() * 100
 
     col1, col2, col3, col4 = st.columns(4)

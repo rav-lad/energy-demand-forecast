@@ -417,10 +417,10 @@ class ForecastErrorArbitrageStrategy:
         total_pnl = df["net_pnl"].sum()
         total_trades = (df["signal"] != 0).sum()
 
-        # Sharpe ratio (annualized)
+        # Sharpe ratio (annualized for hourly data: 365 * 24 periods/year)
         returns = df["net_pnl"] / (df["position_size"] * df["entry_price"] + 1)
         returns = returns.replace([np.inf, -np.inf], 0)
-        sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+        sharpe = returns.mean() / returns.std() * np.sqrt(365 * 24) if returns.std() > 0 else 0
 
         # Win rate
         profitable_trades = (df["net_pnl"] > 0).sum()

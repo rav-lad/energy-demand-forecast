@@ -79,6 +79,46 @@ for dir_path in [RAW_DIR, MODIFIED_DIR]:
 
 
 # =============================================================================
+# Network Utilities
+# =============================================================================
+
+
+def fetch_with_retry(
+    url: str, params: dict, max_retries: int = 3, initial_delay: float = 1.0, timeout: int = 30
+) -> Optional[dict]:
+    """Fetch data from API with exponential backoff retry logic.
+
+    Args:
+        url: API endpoint URL.
+        params: Query parameters.
+        max_retries: Maximum number of retry attempts (default 3).
+        initial_delay: Initial delay in seconds before first retry (default 1.0).
+        timeout: Request timeout in seconds (default 30).
+
+    Returns:
+        dict: JSON response data if successful, None if all retries failed.
+    """
+    delay = initial_delay
+    for attempt in range(max_retries + 1):
+        try:
+            response = requests.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Request failed (attempt {attempt + 1}/{max_retries + 1}): {e}. "
+                    f"Retrying in {delay:.1f}s..."
+                )
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
+            else:
+                logger.error(f"Request failed after {max_retries + 1} attempts: {e}")
+                return None
+    return None
+
+
+# =============================================================================
 # Weather Data Collection (Open-Meteo)
 # =============================================================================
 
@@ -124,9 +164,11 @@ class WeatherCollector:
             params["hourly"] = ",".join(HOURLY_WEATHER_VARS)
 
         try:
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+            # Fetch with retry logic
+            data = fetch_with_retry(url, params, max_retries=3, initial_delay=1.0)
+            if data is None:
+                logger.error(f"Failed to fetch weather for {city} after retries")
+                return pd.DataFrame()
 
             # Parse response
             df = pd.DataFrame(data[frequency])
@@ -170,9 +212,11 @@ class WeatherCollector:
         }
 
         try:
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+            # Fetch with retry logic
+            data = fetch_with_retry(url, params, max_retries=3, initial_delay=1.0)
+            if data is None:
+                logger.error(f"Failed to fetch forecast for {city} after retries")
+                return pd.DataFrame()
 
             df = pd.DataFrame(data["daily"])
             df["date"] = pd.to_datetime(df["time"])
