@@ -360,12 +360,17 @@ def prepare_price_forecasting_dataset(
     # Drop rows with NaN values (from lagging)
     df = df.dropna().reset_index(drop=True)
 
-    # Identify feature columns (exclude datetime and target)
+    # Identify feature columns (exclude datetime, target, and contemporaneous load)
+    # IMPORTANT: Exclude 'load_mw' to avoid data leakage!
+    # We only use lagged load (load_mw_lag_*) which are known at prediction time
     feature_cols = [
         col
         for col in df.columns
-        if col not in ["datetime_hour", target_col]
+        if col not in ["datetime_hour", target_col, "load_mw"]
     ]
+
+    logger.info(f"Total features: {len(feature_cols)}")
+    logger.info(f"Features include load lags but NOT contemporaneous load (avoiding leakage)")
 
     return df, feature_cols
 
@@ -441,8 +446,26 @@ def prepare_price_forecasting_with_fuel_prices(
         df = df.dropna().reset_index(drop=True)
 
     # Identify all feature columns
-    feature_cols = [
-        col for col in df.columns if col not in ["datetime_hour", target_col]
+    # IMPORTANT: Exclude contemporaneous variables to avoid data leakage
+    # We only use lagged versions which are known at prediction time
+    exclude_cols = [
+        "datetime_hour",
+        target_col,
+        "load_mw",  # Use load_mw_lag_* instead
+        # Fuel prices: we use lags, so exclude contemporaneous values
+        "ttf_gas_price",
+        "eua_carbon_price",
+        "coal_price",
+        "spark_spread",
+        "dark_spread",
+        "clean_spark_spread",
     ]
+
+    feature_cols = [
+        col for col in df.columns if col not in exclude_cols
+    ]
+
+    logger.info(f"Total features with fuel prices: {len(feature_cols)}")
+    logger.info(f"Excluded contemporaneous variables to avoid leakage")
 
     return df, feature_cols
