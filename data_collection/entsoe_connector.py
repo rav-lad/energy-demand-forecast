@@ -28,6 +28,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from typing import Optional
+from collections import deque
 
 import pandas as pd
 import requests
@@ -66,11 +67,22 @@ class EntsoeConnector:
     DOC_TYPE_ACTUAL_LOAD = "A65"  # Actual total load
     DOC_TYPE_GENERATION = "A75"  # Actual generation per type
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        rate_limit_rpm: int = 400,
+        use_cache: bool = True,
+        cache_dir: str = "data/cache/entsoe",
+        cache_ttl_days: int = 7,
+    ):
         """Initialize ENTSO-E connector.
 
         Args:
             api_key: ENTSO-E API key. If None, will try to read from environment variable ENTSOE_API_KEY.
+            rate_limit_rpm: Maximum requests per minute (default: 400, ENTSO-E free tier limit).
+            use_cache: Whether to use caching for API responses.
+            cache_dir: Directory for cache storage.
+            cache_ttl_days: Time-to-live for cached data in days.
 
         Raises:
             ValueError: If no API key is provided or found in environment.
@@ -87,13 +99,67 @@ class EntsoeConnector:
         self.session = requests.Session()
         self.session.params = {"securityToken": self.api_key}  # type: ignore
 
+        # Rate limiting (token bucket algorithm)
+        self.rate_limit_rpm = rate_limit_rpm
+        self.request_timestamps = deque()  # Track request timestamps
+        self.total_requests = 0  # Total requests counter
+
+        # Caching
+        self.use_cache = use_cache
+        self.cache = None
+        if use_cache:
+            from data_collection.api_cache import ApiCache
+
+            self.cache = ApiCache(cache_dir=cache_dir, ttl_days=cache_ttl_days)
+            logger.info("API caching enabled")
+
+    def _enforce_rate_limit(self):
+        """Enforce rate limiting using token bucket algorithm.
+
+        Ensures we don't exceed rate_limit_rpm requests per minute.
+        Sleeps if necessary to comply with rate limits.
+        """
+        now = time.time()
+
+        # Remove timestamps older than 1 minute
+        while self.request_timestamps and now - self.request_timestamps[0] > 60:
+            self.request_timestamps.popleft()
+
+        # Check if we've hit the rate limit
+        if len(self.request_timestamps) >= self.rate_limit_rpm:
+            # Calculate how long to wait
+            oldest_timestamp = self.request_timestamps[0]
+            wait_time = 60 - (now - oldest_timestamp) + 0.1  # Add 100ms buffer
+
+            if wait_time > 0:
+                logger.warning(
+                    f"Rate limit reached ({self.rate_limit_rpm} req/min). "
+                    f"Waiting {wait_time:.1f}s..."
+                )
+                time.sleep(wait_time)
+                # Clean up old timestamps after waiting
+                now = time.time()
+                while self.request_timestamps and now - self.request_timestamps[0] > 60:
+                    self.request_timestamps.popleft()
+
+        # Record this request
+        self.request_timestamps.append(now)
+        self.total_requests += 1
+
+        # Log progress periodically
+        if self.total_requests % 50 == 0:
+            logger.info(
+                f"API requests: {self.total_requests} total, "
+                f"{len(self.request_timestamps)} in last minute"
+            )
+
     def _make_request(
         self,
         params: dict,
         max_retries: int = 3,
         initial_delay: float = 1.0,
     ) -> requests.Response:
-        """Make API request with retry logic.
+        """Make API request with retry logic and rate limiting.
 
         Args:
             params: Query parameters.
@@ -106,6 +172,9 @@ class EntsoeConnector:
         Raises:
             requests.exceptions.RequestException: If all retries fail.
         """
+        # Enforce rate limiting before making request
+        self._enforce_rate_limit()
+
         delay = initial_delay
 
         for attempt in range(max_retries + 1):
@@ -137,6 +206,26 @@ class EntsoeConnector:
                     raise
 
         raise requests.exceptions.RequestException("All retries exhausted")
+
+    def get_usage_stats(self) -> dict:
+        """Get API usage statistics.
+
+        Returns:
+            dict: Usage statistics including total requests and current rate.
+        """
+        now = time.time()
+        # Clean up old timestamps
+        while self.request_timestamps and now - self.request_timestamps[0] > 60:
+            self.request_timestamps.popleft()
+
+        return {
+            "total_requests": self.total_requests,
+            "requests_last_minute": len(self.request_timestamps),
+            "rate_limit_rpm": self.rate_limit_rpm,
+            "utilization_percent": (len(self.request_timestamps) / self.rate_limit_rpm * 100)
+            if self.rate_limit_rpm > 0
+            else 0,
+        }
 
     def _parse_datetime(self, dt: str | datetime) -> str:
         """Convert datetime to ENTSO-E format (YYYYMMDDHHmm).
@@ -180,6 +269,18 @@ class EntsoeConnector:
                 f"Unknown country code: {country}. "
                 f"Available: {', '.join(self.COUNTRY_CODES.keys())}"
             )
+
+        # Convert dates to strings for caching
+        start_str = start.strftime("%Y-%m-%d") if isinstance(start, datetime) else start
+        end_str = end.strftime("%Y-%m-%d") if isinstance(end, datetime) else end
+
+        # Try cache first
+        if self.use_cache and self.cache:
+            cached_data = self.cache.get(
+                country=country, start_date=start_str, end_date=end_str, data_type="prices"
+            )
+            if cached_data is not None:
+                return cached_data
 
         params = {
             "documentType": self.DOC_TYPE_DAY_AHEAD_PRICES,
@@ -231,6 +332,17 @@ class EntsoeConnector:
             df = df.sort_values("datetime").reset_index(drop=True)
 
             logger.info(f"Successfully fetched {len(df)} hourly prices for {country}")
+
+            # Cache the result
+            if self.use_cache and self.cache:
+                self.cache.set(
+                    data=df,
+                    country=country,
+                    start_date=start_str,
+                    end_date=end_str,
+                    data_type="prices",
+                )
+
             return df
 
         except Exception as e:
