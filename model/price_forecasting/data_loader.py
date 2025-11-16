@@ -132,6 +132,7 @@ def load_price_and_load_data(
     data_path: str = "data/modified_data/energy_hourly_regional.csv",
     simulate_prices: bool = True,
     random_seed: int = 42,
+    price_file: str = "data/raw_data/market_prices/day_ahead_prices_FR.csv",
 ) -> pd.DataFrame:
     """Load energy load data and corresponding prices.
 
@@ -142,6 +143,7 @@ def load_price_and_load_data(
         data_path: Path to hourly load data CSV file.
         simulate_prices: If True, simulate prices based on load data.
         random_seed: Random seed for price simulation.
+        price_file: Path to ENTSO-E price data CSV (used when simulate_prices=False).
 
     Returns:
         pd.DataFrame: Combined load and price data with features.
@@ -158,15 +160,93 @@ def load_price_and_load_data(
 
     if simulate_prices:
         # Simulate realistic prices
+        logger.info("Using simulated prices based on load data")
         price_df = simulate_realistic_prices(load_df, random_seed=random_seed)
         return price_df
     else:
-        # In production, load actual price data from ENTSO-E API
-        # For now, raise an error
-        raise NotImplementedError(
-            "Loading actual ENTSO-E price data not yet implemented.\n"
-            "Set simulate_prices=True to use simulated data."
+        # Load actual ENTSO-E price data
+        logger.info(f"Loading real ENTSO-E price data from {price_file}")
+
+        if not Path(price_file).exists():
+            raise FileNotFoundError(
+                f"Price data file not found: {price_file}\n"
+                f"Please collect price data first:\n"
+                f"  python data_recuperation/data_market_prices.py --start_date 2023-01-01 --end_date 2024-12-31 --countries FR\n"
+                f"Or set simulate_prices=True to use simulated data."
+            )
+
+        # Load price data
+        price_df = pd.read_csv(price_file)
+
+        # Handle different possible datetime column names
+        datetime_col = None
+        for col in ["datetime", "datetime_hour", "timestamp"]:
+            if col in price_df.columns:
+                datetime_col = col
+                break
+
+        if datetime_col is None:
+            # Try to find index if it's a datetime
+            if price_df.index.name in ["datetime", "timestamp"]:
+                price_df = price_df.reset_index()
+                datetime_col = price_df.columns[0]
+            else:
+                raise ValueError(
+                    f"Could not find datetime column in {price_file}. "
+                    f"Available columns: {price_df.columns.tolist()}"
+                )
+
+        # Rename to standard format
+        if datetime_col != "datetime_hour":
+            price_df["datetime_hour"] = pd.to_datetime(price_df[datetime_col])
+        else:
+            price_df["datetime_hour"] = pd.to_datetime(price_df["datetime_hour"])
+
+        # Find price column (handle different naming conventions)
+        price_col = None
+        for col in ["price_FR", "price_eur_mwh", "price", "day_ahead_price"]:
+            if col in price_df.columns:
+                price_col = col
+                break
+
+        if price_col is None:
+            raise ValueError(
+                f"Could not find price column in {price_file}. "
+                f"Available columns: {price_df.columns.tolist()}"
+            )
+
+        # Rename to standard format
+        if price_col != "price":
+            price_df["price"] = price_df[price_col]
+
+        # Aggregate load data across regions if necessary
+        if "insee_region" in load_df.columns:
+            load_df = (
+                load_df.groupby("datetime_hour")
+                .agg({"conso_elec_mw": "sum"})
+                .reset_index()
+            )
+
+        # Merge price and load data on datetime
+        merged_df = pd.merge(
+            load_df,
+            price_df[["datetime_hour", "price"]],
+            on="datetime_hour",
+            how="inner",
         )
+
+        # Add load column (rename from conso_elec_mw)
+        merged_df["load_mw"] = merged_df["conso_elec_mw"]
+
+        logger.info(
+            f"Loaded {len(merged_df)} records with real prices "
+            f"(range: {merged_df['price'].min():.2f} - {merged_df['price'].max():.2f} EUR/MWh)"
+        )
+
+        # Select relevant columns
+        result_df = merged_df[["datetime_hour", "price", "load_mw"]].copy()
+
+        return result_df
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -280,12 +360,17 @@ def prepare_price_forecasting_dataset(
     # Drop rows with NaN values (from lagging)
     df = df.dropna().reset_index(drop=True)
 
-    # Identify feature columns (exclude datetime and target)
+    # Identify feature columns (exclude datetime, target, and contemporaneous load)
+    # IMPORTANT: Exclude 'load_mw' to avoid data leakage!
+    # We only use lagged load (load_mw_lag_*) which are known at prediction time
     feature_cols = [
         col
         for col in df.columns
-        if col not in ["datetime_hour", target_col]
+        if col not in ["datetime_hour", target_col, "load_mw"]
     ]
+
+    logger.info(f"Total features: {len(feature_cols)}")
+    logger.info(f"Features include load lags but NOT contemporaneous load (avoiding leakage)")
 
     return df, feature_cols
 
@@ -361,8 +446,26 @@ def prepare_price_forecasting_with_fuel_prices(
         df = df.dropna().reset_index(drop=True)
 
     # Identify all feature columns
-    feature_cols = [
-        col for col in df.columns if col not in ["datetime_hour", target_col]
+    # IMPORTANT: Exclude contemporaneous variables to avoid data leakage
+    # We only use lagged versions which are known at prediction time
+    exclude_cols = [
+        "datetime_hour",
+        target_col,
+        "load_mw",  # Use load_mw_lag_* instead
+        # Fuel prices: we use lags, so exclude contemporaneous values
+        "ttf_gas_price",
+        "eua_carbon_price",
+        "coal_price",
+        "spark_spread",
+        "dark_spread",
+        "clean_spark_spread",
     ]
+
+    feature_cols = [
+        col for col in df.columns if col not in exclude_cols
+    ]
+
+    logger.info(f"Total features with fuel prices: {len(feature_cols)}")
+    logger.info(f"Excluded contemporaneous variables to avoid leakage")
 
     return df, feature_cols

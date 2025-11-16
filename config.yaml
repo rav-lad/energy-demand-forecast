@@ -90,6 +90,21 @@ data_collection:
       - "day_ahead"
       - "intraday"  # If available
 
+    # API rate limiting (ENTSO-E free tier: 400 requests/minute)
+    rate_limit_rpm: 400
+    request_timeout: 30  # seconds
+    retry_attempts: 3
+    backoff_factor: 2.0  # exponential backoff multiplier
+
+    # Cache configuration
+    cache_enabled: true
+    cache_dir: "data/cache/entsoe"
+    cache_ttl_days: 7  # Time to live for cached data
+
+    # Data collection
+    incremental_update: true  # Only fetch new data since last update
+    last_update_tracker: "data/cache/.last_update.json"  # Track last successful update
+
   # Fundamentals (ENTSO-E)
   fundamentals:
     variables:
