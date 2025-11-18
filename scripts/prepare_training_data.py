@@ -234,11 +234,23 @@ def main():
         # Merge
         df_merged = merge_all_data(df_market, df_weather, frequency=args.frequency)
 
-        # Engineer features
-        df_features = engineer_features(df_merged)
+        # CRITICAL FIX: Split BEFORE feature engineering to avoid data leakage
+        # Features must be created independently on train and test sets
+        logger.info("\n" + "=" * 70)
+        logger.info("SPLITTING TRAIN/TEST (BEFORE FEATURE ENGINEERING)")
+        logger.info("=" * 70)
+        df_train_raw, df_test_raw = split_train_test(df_merged, test_size=args.test_size)
 
-        # Split
-        df_train, df_test = split_train_test(df_features, test_size=args.test_size)
+        # Engineer features SEPARATELY on train and test
+        logger.info("\n" + "=" * 70)
+        logger.info("ENGINEERING FEATURES ON TRAIN SET")
+        logger.info("=" * 70)
+        df_train = engineer_features(df_train_raw)
+
+        logger.info("\n" + "=" * 70)
+        logger.info("ENGINEERING FEATURES ON TEST SET")
+        logger.info("=" * 70)
+        df_test = engineer_features(df_test_raw)
 
         # Save
         train_file = MODIFIED_DIR / f"train_{args.frequency}.csv"
