@@ -4,53 +4,60 @@ Comprehensive analysis notebooks for the Energy Price Forecasting project.
 
 ## 📚 Notebook Organization
 
-### Core Analysis Notebooks (Recommended Order)
+### ⭐ Production-Ready Notebook (Use This!)
 
-1. **[01_comprehensive_eda.ipynb](01_comprehensive_eda.ipynb)** - Exploratory Data Analysis
+**[05_model_performance_analysis.ipynb](05_model_performance_analysis.ipynb)** ⭐ **RECOMMENDED**
+- **Verified model performance** with real results
+- ML metrics (R², MAPE, MAE, RMSE)
+- Trading performance (returns, Sharpe, drawdown)
+- Comprehensive visualizations
+- Uses current dataset (560 train / 140 test)
+- **Best for final results presentation**
+- ✅ **Compatible with current data structure**
+
+### 📊 Exploratory Notebooks (Reference Only)
+
+**⚠️ Note:** Notebooks 01-04 were created for an older dataset structure with regional consumption data (ODRE regional breakdown). The current production pipeline uses aggregated national price/load data with weather features. These are kept for reference but **may need adaptation** to work with current data structure.
+
+1. **[01_comprehensive_eda.ipynb](01_comprehensive_eda.ipynb)** - Exploratory Data Analysis ⚠️
    - Statistical tests (stationarity, normality)
    - Seasonality decomposition (STL)
    - Distribution analysis (Q-Q plots, outliers)
    - Correlation analysis (weather vs demand)
    - Regional heterogeneity analysis
-   - **Run first** to understand the data
+   - ⚠️ **Uses old dataset structure (needs `date`, `insee_region`, `conso_elec_mw` columns)**
 
-2. **[02_feature_engineering_analysis.ipynb](02_feature_engineering_analysis.ipynb)** - Feature Importance
+2. **[02_feature_engineering_analysis.ipynb](02_feature_engineering_analysis.ipynb)** ⚠️
    - Feature engineering methodology
    - SHAP value analysis
    - Feature importance rankings
    - Correlation matrices
    - Lag feature optimization
+   - ⚠️ **May need updates for current feature names**
 
-3. **[03_model_benchmarking.ipynb](03_model_benchmarking.ipynb)** - Model Comparison
+3. **[03_model_benchmarking.ipynb](03_model_benchmarking.ipynb)** ⚠️
    - Baseline models (Ridge, Linear)
    - Tree-based models (RF, XGBoost, LightGBM)
    - Cross-validation results
    - Hyperparameter tuning
+   - ⚠️ **May need updates**
 
-4. **[04_price_demand_dynamics.ipynb](04_price_demand_dynamics.ipynb)** - Market Dynamics
+4. **[04_price_demand_dynamics.ipynb](04_price_demand_dynamics.ipynb)** ⚠️
    - Price-demand relationship analysis
    - Load-price correlation
    - Spread dynamics
    - Market regime detection
-
-5. **[05_model_performance_analysis.ipynb](05_model_performance_analysis.ipynb)** ⭐ **NEW**
-   - **Verified model performance** with real results
-   - ML metrics (R², MAPE, MAE, RMSE)
-   - Trading performance (returns, Sharpe, drawdown)
-   - Comprehensive visualizations
-   - Production-ready analysis
-   - **Recommended for final results presentation**
+   - ⚠️ **May need updates**
 
 ## 🎯 Quick Start
 
-### For Data Understanding
-Start with: `01_comprehensive_eda.ipynb`
+### For Model Results (RECOMMENDED)
+**Jump directly to:** `05_model_performance_analysis.ipynb`
 
-### For Model Results
-Jump to: `05_model_performance_analysis.ipynb` (uses verified results from actual model runs)
+This notebook uses verified results from actual model runs and is fully compatible with the current data structure.
 
-### For Feature Analysis
-Review: `02_feature_engineering_analysis.ipynb`
+### For Historical Reference
+Notebooks 01-04 provide valuable exploratory analysis but were created for an older data format. Use them for methodology reference.
 
 ## 📊 Datasets Used
 
