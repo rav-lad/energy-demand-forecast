@@ -139,6 +139,9 @@ def run_backtest(market_prices, price_forecasts, dates, model_name, initial_capi
     """
     Run realistic electricity trading backtest.
 
+    IMPORTANT: Electricity markets trade 365 days/year (not 252 like equity markets).
+    Therefore, we use 365 for annualization factors in Sharpe ratio and returns.
+
     Model: Simplified spread trading
     - When forecast > market + threshold: Buy forward at market price
     - Hold position for up to N days
@@ -304,9 +307,11 @@ def run_backtest(market_prices, price_forecasts, dates, model_name, initial_capi
     returns = equity_series.pct_change().fillna(0)
 
     total_return = (capital - initial_capital) / initial_capital
-    annual_return = (1 + total_return) ** (252 / len(returns)) - 1
+    # Use 365 days for electricity markets (trades every day, not just business days)
+    annual_return = (1 + total_return) ** (365 / len(returns)) - 1
 
-    sharpe = returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+    # Use 365 days for electricity markets (trades every day, not just business days)
+    sharpe = returns.mean() / returns.std() * np.sqrt(365) if returns.std() > 0 else 0
 
     # Drawdown
     cumulative = equity_series / initial_capital
