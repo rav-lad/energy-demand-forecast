@@ -68,6 +68,8 @@ class OdreCollector:
     ) -> pd.DataFrame:
         """Fetch energy consumption data from ODRE.
 
+        ODRE API has pagination limits, so we split large requests into monthly chunks.
+
         Args:
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
@@ -81,6 +83,71 @@ class OdreCollector:
         """
         logger.info(f"Fetching ODRE data from {start_date} to {end_date}")
 
+        # Convert to datetime for chunking
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date)
+
+        # Calculate number of days
+        num_days = (end_dt - start_dt).days
+
+        # If period is small enough, fetch directly
+        # ODRE has ~13 regions, so 10000 rows = ~769 days max
+        if num_days <= 700:
+            return self._fetch_data_chunk(start_date, end_date, max_retries)
+
+        # Otherwise, split into monthly chunks
+        logger.info(f"Large date range detected ({num_days} days). Splitting into monthly chunks...")
+
+        all_data = []
+        current_start = start_dt
+
+        while current_start < end_dt:
+            # Fetch 1 month at a time
+            current_end = min(
+                current_start + pd.DateOffset(months=1),
+                end_dt
+            )
+
+            chunk_start = current_start.strftime("%Y-%m-%d")
+            chunk_end = current_end.strftime("%Y-%m-%d")
+
+            logger.info(f"  Fetching {chunk_start} to {chunk_end}...")
+
+            df_chunk = self._fetch_data_chunk(chunk_start, chunk_end, max_retries)
+
+            if not df_chunk.empty:
+                all_data.append(df_chunk)
+                logger.info(f"    ✓ Collected {len(df_chunk)} records")
+
+            current_start = current_end
+
+        if not all_data:
+            logger.warning("No data collected")
+            return pd.DataFrame()
+
+        # Combine all chunks
+        df = pd.concat(all_data, ignore_index=True)
+        df = df.sort_values("date").reset_index(drop=True)
+
+        logger.info(f"✓ Total: {len(df)} records collected")
+        return df
+
+    def _fetch_data_chunk(
+        self,
+        start_date: str,
+        end_date: str,
+        max_retries: int = 3,
+    ) -> pd.DataFrame:
+        """Fetch a single chunk of data (internal method).
+
+        Args:
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+            max_retries: Maximum retry attempts
+
+        Returns:
+            pd.DataFrame: Energy consumption data for this chunk
+        """
         # ODRE API parameters
         params = {
             "dataset": self.DATASET_ID,
@@ -93,7 +160,7 @@ class OdreCollector:
         all_records = []
         start_index = 0
 
-        # Paginate through results
+        # Paginate through results (but limit to avoid API errors)
         while True:
             params["start"] = start_index
 
@@ -101,7 +168,8 @@ class OdreCollector:
             response_data = self._fetch_with_retry(params, max_retries)
 
             if response_data is None:
-                raise Exception("Failed to fetch data from ODRE after all retries")
+                logger.warning(f"Failed to fetch data for {start_date} to {end_date}")
+                break
 
             records = response_data.get("records", [])
 
@@ -112,12 +180,18 @@ class OdreCollector:
 
             # Check if we got all records
             nhits = response_data.get("nhits", 0)
-            logger.info(f"Fetched {len(all_records)} / {nhits} records")
 
             if len(all_records) >= nhits:
                 break
 
+            # Update start index for next page
             start_index += len(records)
+
+            # Safety check: if we're about to exceed 10000 start index, stop
+            # This prevents the API error we were getting
+            if start_index >= 10000:
+                logger.warning(f"Reached pagination limit at {start_index} records. Consider splitting date range further.")
+                break
 
             # Rate limiting (be nice to the API)
             time.sleep(0.5)

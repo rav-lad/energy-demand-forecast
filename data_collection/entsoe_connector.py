@@ -227,7 +227,7 @@ class EntsoeConnector:
             else 0,
         }
 
-    def _parse_datetime(self, dt: str | datetime) -> str:
+    def _parse_datetime(self, dt):
         """Convert datetime to ENTSO-E format (YYYYMMDDHHmm).
 
         Args:
@@ -237,14 +237,15 @@ class EntsoeConnector:
             Formatted datetime string.
         """
         if isinstance(dt, str):
-            dt = datetime.fromisoformat(dt)
+            from datetime import datetime as dt_class
+            dt = dt_class.fromisoformat(dt)
         return dt.strftime("%Y%m%d%H%M")
 
     def get_day_ahead_prices(
         self,
         country: str,
-        start: str | datetime,
-        end: str | datetime,
+        start,
+        end,
     ) -> pd.DataFrame:
         """Fetch day-ahead electricity prices.
 
@@ -271,8 +272,9 @@ class EntsoeConnector:
             )
 
         # Convert dates to strings for caching
-        start_str = start.strftime("%Y-%m-%d") if isinstance(start, datetime) else start
-        end_str = end.strftime("%Y-%m-%d") if isinstance(end, datetime) else end
+        from datetime import datetime as dt_class
+        start_str = start.strftime("%Y-%m-%d") if isinstance(start, dt_class) else start
+        end_str = end.strftime("%Y-%m-%d") if isinstance(end, dt_class) else end
 
         # Try cache first
         if self.use_cache and self.cache:
@@ -299,8 +301,20 @@ class EntsoeConnector:
             import xml.etree.ElementTree as ET
             root = ET.fromstring(response.content)
 
-            # ENTSO-E uses namespace
-            ns = {"ns": "urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:0"}
+            # Debug: log the root tag and namespace
+            logger.debug(f"XML root tag: {root.tag}")
+
+            # Extract namespace from root tag (handles different ENTSO-E API versions)
+            import re
+            namespace_match = re.match(r'\{(.*)\}', root.tag)
+            if namespace_match:
+                namespace = namespace_match.group(1)
+                logger.debug(f"Detected namespace: {namespace}")
+            else:
+                # Fallback to common namespace
+                namespace = "urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:3"
+
+            ns = {"ns": namespace}
 
             data = []
             for timeseries in root.findall(".//ns:TimeSeries", ns):
@@ -329,6 +343,11 @@ class EntsoeConnector:
                             })
 
             df = pd.DataFrame(data)
+
+            if df.empty:
+                logger.warning(f"No data found for {country} from {start} to {end}")
+                return df
+
             df = df.sort_values("datetime").reset_index(drop=True)
 
             logger.info(f"Successfully fetched {len(df)} hourly prices for {country}")
@@ -352,8 +371,8 @@ class EntsoeConnector:
     def get_actual_load(
         self,
         country: str,
-        start: str | datetime,
-        end: str | datetime,
+        start,
+        end,
     ) -> pd.DataFrame:
         """Fetch actual total load (electricity consumption).
 
@@ -382,8 +401,17 @@ class EntsoeConnector:
             response = self._make_request(params)
 
             import xml.etree.ElementTree as ET
+            import re
             root = ET.fromstring(response.content)
-            ns = {"ns": "urn:iec62325.351:tc57wg16:451-6:publicationdocument:7:0"}
+
+            # Extract namespace from root tag
+            namespace_match = re.match(r'\{(.*)\}', root.tag)
+            if namespace_match:
+                namespace = namespace_match.group(1)
+            else:
+                namespace = "urn:iec62325.351:tc57wg16:451-6:publicationdocument:7:3"
+
+            ns = {"ns": namespace}
 
             data = []
             for timeseries in root.findall(".//ns:TimeSeries", ns):
@@ -423,8 +451,8 @@ class EntsoeConnector:
     def get_market_data(
         self,
         country: str,
-        start: str | datetime,
-        end: str | datetime,
+        start,
+        end,
     ) -> pd.DataFrame:
         """Fetch both prices and load, merged on datetime.
 

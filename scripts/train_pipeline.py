@@ -144,24 +144,30 @@ class TrainingPipeline:
 
     def _run_transformation(self):
         """Run data transformation."""
+        import pandas as pd
         from data_processing.transformation import (
             transform_dl,
             transform_lightgbm_quantile,
             transform_regression_and_xgb,
         )
 
+        # Load raw data
+        data_dir = project_root / "data" / "modified_data"
+        train_file = data_dir / f"train_{self.frequency}.csv"
+        df_train = pd.read_csv(train_file)
+
         if self.model_type in ["xgboost", "ridge", "lasso"]:
             logger.info("  Running transform_regression_and_xgb...")
-            transform_regression_and_xgb(self.frequency)
+            transform_regression_and_xgb(df_train, frequency=self.frequency, fit_scaler=True, save=True)
 
         elif self.model_type == "lightgbm":
             logger.info("  Running transform_lightgbm_quantile...")
             lags = self.kwargs.get("lags", "with")
-            transform_lightgbm_quantile(self.frequency, lags=lags)
+            transform_lightgbm_quantile(df_train, frequency=self.frequency, lags=lags, fit_scaler=True, save=True)
 
         elif self.model_type == "tft":
             logger.info("  Running transform_dl...")
-            transform_dl(self.frequency)
+            transform_dl(df_train, frequency=self.frequency, fit_scaler=True, save=True)
 
     def _train(self):
         """Train the model."""

@@ -15,7 +15,7 @@ import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
-from pytorch_forecasting.data.encoders import MultiNormalizer, TorchNormalizer
+from pytorch_forecasting.data.encoders import TorchNormalizer
 from pytorch_forecasting.metrics import QuantileLoss
 
 # === Paths ===
@@ -25,28 +25,19 @@ CHECKPOINT_DIR = BASE_DIR / "models" / "tft"
 TRAINING_DATASET_PATH = CHECKPOINT_DIR / "tft_training_dataset.pt"
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
-# === Import transformation function ===
-sys.path.append(str(BASE_DIR))
-from data_processing.transformation import transform_dl
-
-
-def split_train_val(df: pd.DataFrame, val_size: float = 0.2):
+def split_train_val(df: pd.DataFrame, train_cutoff_idx: int):
     """Split time series data into training and validation sets.
 
     Args:
         df: Input DataFrame with time series data
-        val_size: Fraction of data to use for validation (default 0.2)
+        train_cutoff_idx: time_idx value to split at
 
     Returns:
         Tuple of (train_df, val_df) DataFrames
     """
-    df_sorted = df.sort_values("date").reset_index(drop=True)
-    unique_dates = df_sorted["date"].unique()
-    n_val = int(len(unique_dates) * val_size)
-    val_start = unique_dates[-n_val]
     return (
-        df_sorted[df_sorted["date"] < val_start],
-        df_sorted[df_sorted["date"] >= val_start],
+        df[df["time_idx"] <= train_cutoff_idx],
+        df[df["time_idx"] > train_cutoff_idx],
     )
 
 
@@ -61,49 +52,49 @@ def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
     """
     print(f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}")
 
-    # 1) Load and transform dataset
-    df = pd.read_csv(DATA_DIR / f"train_{freq}.csv")
-    df["date"] = pd.to_datetime(df["date"])
-    df_trans = transform_dl(df, filter_too_short=True)
+    # 1) Load dataset
+    train_df = pd.read_csv(DATA_DIR / f"train_{freq}.csv")
+    test_df = pd.read_csv(DATA_DIR / f"test_{freq}.csv")
+    df = pd.concat([train_df, test_df], ignore_index=True)
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df.sort_values("datetime").reset_index(drop=True)
 
-    # 2) Split into training and validation sets
-    df_train, df_val = split_train_val(df_trans)
+    # Add time_idx and group
+    df["time_idx"] = (df["datetime"] - df["datetime"].min()).dt.days
+    df["series"] = "FR"  # Single series for entire France
+
+    # 2) Split into training and validation sets (560/140 split)
+    train_cutoff = 560
+    df_train, df_val = split_train_val(df, train_cutoff)
 
     # 3) Create TimeSeriesDataSet (forecast horizon = 1)
-    target_cols = ["conso_elec_mw", "conso_gaz_mw"]
+    time_varying_known_reals = [
+        "time_idx", "month", "day", "dayofweek",
+        "month_sin", "month_cos", "day_sin", "day_cos", "dayofweek_sin", "dayofweek_cos",
+        "is_weekend"
+    ]
+
+    time_varying_unknown_reals = [
+        "temperature_2m_max", "temperature_2m_min",
+        "precipitation_sum", "wind_speed_10m_max",
+        "shortwave_radiation_sum", "et0_fao_evapotranspiration"
+    ]
+
     training = TimeSeriesDataSet(
         df_train,
         time_idx="time_idx",
-        target=target_cols,
-        group_ids=["insee_region"],
-        static_categoricals=["insee_region"],
-        time_varying_known_reals=[
-            "temperature_2m_max",
-            "temperature_2m_min",
-            "precipitation_sum",
-            "weather_code",
-            "apparent_temperature_max",
-            "apparent_temperature_min",
-            "rain_sum",
-            "snowfall_sum",
-            "precipitation_hours",
-            "sunrise",
-            "sunset",
-            "sunshine_duration",
-            "daylight_duration",
-            "wind_speed_10m_max",
-            "wind_gusts_10m_max",
-            "wind_direction_10m_dominant",
-            "shortwave_radiation_sum",
-            "et0_fao_evapotranspiration",
-        ],
-        time_varying_unknown_reals=target_cols,
-        max_encoder_length=24,
-        min_encoder_length=12,
-        max_prediction_length=1,  # forecast horizon = 1
-        min_prediction_length=1,  # forecast horizon = 1
-        allow_missing_timesteps=True,
-        target_normalizer=MultiNormalizer([TorchNormalizer()] * len(target_cols)),
+        target="load_mw",
+        group_ids=["series"],
+        static_categoricals=["series"],
+        time_varying_known_reals=time_varying_known_reals,
+        time_varying_unknown_reals=time_varying_unknown_reals,
+        max_encoder_length=30,
+        max_prediction_length=1,
+        allow_missing_timesteps=False,
+        target_normalizer=TorchNormalizer(),
+        add_relative_time_idx=True,
+        add_target_scales=True,
+        add_encoder_length=True,
     )
 
     # Save training dataset

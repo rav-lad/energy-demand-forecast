@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(timeout 5 sleep:*)",
+      "Bash($null)",
+      "Bash(ping:*)",
+      "Bash(nul)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(wait)",
+      "Bash(mv:*)",
+      "Bash(rm visualize_predictions.py run_backtest_example.py test_api_connection.py verify_production_ready.py RESULTS_SUMMARY.md nul)",
+      "Bash(rm:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
