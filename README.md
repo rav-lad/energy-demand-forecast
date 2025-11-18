@@ -192,15 +192,40 @@ mlflow ui --backend-store-uri file:///path/to/mlruns
 
 ## 📊 Results
 
-**Performance metrics and detailed analysis are presented in the research paper.**
+### Machine Learning Performance (Test Set: 140 days)
 
-The system has been backtested on 3 years of historical data (2022-2024) including the 2022 energy crisis. All results follow rigorous temporal logic with walk-forward validation and realistic transaction costs.
+| Model         | R²    | MAPE  | Status      |
+|---------------|-------|-------|-------------|
+| XGBoost       | 0.686 | 30.1% | Production  |
+| LightGBM      | 0.678 | 28.3% | Production  |
+| Random Forest | 0.641 | 29.7% | Production  |
+| Ridge         | 0.437 | 26.0% | Baseline    |
+| GRU (LSTM)    | 0.317 | 50.0% | Not used    |
 
-**Key validation:**
-- ✅ No data leakage (11 components audited)
-- ✅ TimeSeriesSplit cross-validation
-- ✅ Monte Carlo robustness testing (1000+ scenarios)
-- ✅ Stress testing under extreme market conditions
+### Trading Performance (Spread Trading Strategy)
+
+| Model         | Total Return | Annual Return | Sharpe | Max DD | Win Rate | Trades |
+|---------------|--------------|---------------|--------|--------|----------|--------|
+| Random Forest | 27.5%        | 88.4%         | 1.65   | -4.2%  | 61.3%    | 31     |
+| XGBoost       | 24.3%        | 76.3%         | 1.45   | -4.3%  | 57.6%    | 33     |
+| LightGBM      | 19.7%        | 59.8%         | 1.19   | -7.3%  | 55.2%    | 29     |
+| Ridge         | 7.6%         | 20.9%         | 0.75   | -7.7%  | 63.3%    | 30     |
+
+**Trading Configuration:**
+- Transaction costs: 0.1% per trade (0.2% round-trip)
+- Entry threshold: 10 EUR/MWh spread
+- Max holding: 7 days
+- Stop loss: 2% of capital
+- Risk per trade: 1% of capital
+
+**Key Validation:**
+- ✅ No data leakage (comprehensive audit completed - see [VERIFICATION_REPORT.md](VERIFICATION_REPORT.md))
+- ✅ Temporal split (560 train / 140 test)
+- ✅ Realistic transaction costs (0.1% per side)
+- ✅ Proper t→t+1 prediction (uses only lag features)
+- ✅ Production-ready data pipeline
+
+**Complete study documentation available in [STUDY_DOCUMENTATION.md](STUDY_DOCUMENTATION.md)**
 
 ---
 
