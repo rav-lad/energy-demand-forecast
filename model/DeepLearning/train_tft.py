@@ -41,16 +41,17 @@ def split_train_val(df: pd.DataFrame, train_cutoff_idx: int):
     )
 
 
-def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
-    """Train Temporal Fusion Transformer model for energy demand forecasting.
+def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int, target: str = 'price'):
+    """Train Temporal Fusion Transformer model for energy forecasting.
 
     Args:
         freq: Data frequency, either "daily" or "hourly"
         max_epochs: Maximum number of training epochs
         batch_size: Batch size for training
         gpus: Number of GPUs to use (0 for CPU training)
+        target: Target variable - 'price' for price_eur_mwh, 'load' for load_mw
     """
-    print(f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}")
+    print(f"Training TFT | freq={freq}, epochs={max_epochs}, batch={batch_size}, gpus={gpus}, target={target}")
 
     # 1) Load dataset
     train_df = pd.read_csv(DATA_DIR / f"train_{freq}.csv")
@@ -80,10 +81,19 @@ def train_tft(freq: str, max_epochs: int, batch_size: int, gpus: int):
         "shortwave_radiation_sum", "et0_fao_evapotranspiration"
     ]
 
+    # Add load_mw to time_varying_unknown_reals when predicting price
+    # Add price_eur_mwh to time_varying_unknown_reals when predicting load
+    if target == 'price':
+        time_varying_unknown_reals.append("load_mw")
+        target_var = "price_eur_mwh"
+    else:
+        time_varying_unknown_reals.append("price_eur_mwh")
+        target_var = "load_mw"
+
     training = TimeSeriesDataSet(
         df_train,
         time_idx="time_idx",
-        target="load_mw",
+        target=target_var,
         group_ids=["series"],
         static_categoricals=["series"],
         time_varying_known_reals=time_varying_known_reals,
@@ -145,6 +155,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", type=int, default=30)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--gpus", type=int, default=0)
+    parser.add_argument("--target", choices=["price", "load"], default="price")
     args = parser.parse_args()
 
     train_tft(
@@ -152,4 +163,5 @@ if __name__ == "__main__":
         max_epochs=args.max_epochs,
         batch_size=args.batch_size,
         gpus=args.gpus,
+        target=args.target,
     )

@@ -8,15 +8,18 @@ import pandas as pd
 import numpy as np
 import torch
 from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
+from pytorch_forecasting.data.encoders import TorchNormalizer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import json
+import argparse
 
 # Paths
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data" / "modified_data"
 MODELS_DIR = BASE_DIR / "models"
-CHECKPOINT_PATH = MODELS_DIR / "tft" / "checkpoints" / "best_tft.ckpt"
-DATASET_PATH = MODELS_DIR / "tft" / "tft_training_dataset.pt"
+CHECKPOINT_DIR = MODELS_DIR / "tft"
+CHECKPOINT_PATH = CHECKPOINT_DIR / "checkpoints" / "best_tft.ckpt"
+DATASET_PATH = CHECKPOINT_DIR / "tft_training_dataset.pt"
 
 def load_data():
     """Load train and test data."""
@@ -33,9 +36,13 @@ def load_data():
 
     return df, 560  # train_cutoff
 
-def evaluate_tft():
-    """Evaluate TFT model and save predictions."""
-    print("Loading data...")
+def evaluate_tft(target='price'):
+    """Evaluate TFT model and save predictions.
+
+    Args:
+        target: 'price' or 'load' - what the model predicts
+    """
+    print(f"Loading data... (target={target})")
     df, train_cutoff = load_data()
 
     print("Loading TFT model...")
@@ -56,12 +63,18 @@ def evaluate_tft():
         "shortwave_radiation_sum", "et0_fao_evapotranspiration"
     ]
 
-    from pytorch_forecasting.data.encoders import TorchNormalizer
+    # Configure based on target
+    if target == 'price':
+        time_varying_unknown_reals.append("load_mw")
+        target_var = "price_eur_mwh"
+    else:
+        time_varying_unknown_reals.append("price_eur_mwh")
+        target_var = "load_mw"
 
     training = TimeSeriesDataSet(
         df_train,
         time_idx="time_idx",
-        target="load_mw",
+        target=target_var,
         group_ids=["series"],
         static_categoricals=["series"],
         time_varying_known_reals=time_varying_known_reals,
@@ -93,9 +106,10 @@ def evaluate_tft():
     r2 = r2_score(y_true, y_pred)
     mape = np.mean(np.abs((y_true - y_pred) / y_true)) * 100
 
-    print(f"\nTFT Model Evaluation:")
-    print(f"  MAE:  {mae:.2f} MW")
-    print(f"  RMSE: {rmse:.2f} MW")
+    unit = "EUR/MWh" if target == 'price' else "MW"
+    print(f"\nTFT Model Evaluation ({target}):")
+    print(f"  MAE:  {mae:.2f} {unit}")
+    print(f"  RMSE: {rmse:.2f} {unit}")
     print(f"  R²:   {r2:.4f}")
     print(f"  MAPE: {mape:.2f}%")
 
@@ -107,7 +121,7 @@ def evaluate_tft():
         'mape': float(mape)
     }
 
-    metrics_file = MODELS_DIR / "tft" / "metrics.json"
+    metrics_file = CHECKPOINT_DIR / "metrics.json"
     with open(metrics_file, 'w') as f:
         json.dump(metrics, f, indent=2)
     print(f"\nMetrics saved to: {metrics_file}")
@@ -115,19 +129,23 @@ def evaluate_tft():
     # Save predictions for trading backtest
     # Match test_data length
     test_dates = test_data["datetime"].values[:len(y_pred)]
-    test_actual = test_data["load_mw"].values[:len(y_pred)]
+    test_actual = test_data[target_var].values[:len(y_pred)]
 
     predictions_df = pd.DataFrame({
         'datetime': test_dates,
-        'actual_load': test_actual,
-        'predicted_load': y_pred
+        f'actual_{target}': test_actual,
+        f'predicted_{target}': y_pred
     })
 
-    predictions_file = MODELS_DIR / "tft" / "predictions.csv"
+    predictions_file = CHECKPOINT_DIR / "predictions.csv"
     predictions_df.to_csv(predictions_file, index=False)
     print(f"Predictions saved to: {predictions_file}")
 
     return metrics
 
 if __name__ == "__main__":
-    evaluate_tft()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target", choices=["price", "load"], default="price")
+    args = parser.parse_args()
+
+    evaluate_tft(target=args.target)

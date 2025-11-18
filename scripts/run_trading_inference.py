@@ -307,11 +307,20 @@ def run_backtest(market_prices, price_forecasts, dates, model_name, initial_capi
     returns = equity_series.pct_change().fillna(0)
 
     total_return = (capital - initial_capital) / initial_capital
-    # Use 365 days for electricity markets (trades every day, not just business days)
-    annual_return = (1 + total_return) ** (365 / len(returns)) - 1
 
-    # Use 365 days for electricity markets (trades every day, not just business days)
-    sharpe = returns.mean() / returns.std() * np.sqrt(365) if returns.std() > 0 else 0
+    # CRITICAL FIX: Calculate actual calendar days in backtest period
+    # Using len(returns) is wrong because it counts samples, not days
+    days_in_period = (dates.iloc[-1] - dates.iloc[0]).days + 1
+
+    # Annualize return: compound the return over a full year
+    annual_return = (1 + total_return) ** (365 / days_in_period) - 1
+
+    # CRITICAL FIX: Sharpe ratio annualization
+    # Must use sqrt(number_of_samples), NOT sqrt(365)
+    # The formula is: sharpe_annual = sharpe_daily * sqrt(trading_days_per_year)
+    # But we have sharpe_daily = mean(returns) / std(returns)
+    # So sharpe_annual = mean(returns) / std(returns) * sqrt(len(returns))
+    sharpe = returns.mean() / returns.std() * np.sqrt(len(returns)) if returns.std() > 0 else 0
 
     # Drawdown
     cumulative = equity_series / initial_capital
