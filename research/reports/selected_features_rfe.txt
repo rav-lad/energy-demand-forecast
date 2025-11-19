@@ -1,0 +1,7 @@
+# Selected Features from RFE
+# Total: 4 features
+
+year
+dayofweek
+price_lag_1
+price_rolling_mean_7

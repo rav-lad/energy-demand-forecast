@@ -1,7 +1,7 @@
 # Makefile for compiling LaTeX research paper
 
 # Main document
-MAIN = energy_trading_research
+MAIN = energy_forecasting_complete_study
 TEX = $(MAIN).tex
 PDF = $(MAIN).pdf
 
