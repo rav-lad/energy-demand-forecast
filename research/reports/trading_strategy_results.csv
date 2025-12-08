@@ -1,0 +1,2 @@
+strategy,total_pnl,sharpe_ratio,hit_ratio,max_drawdown,num_trades,avg_pnl_per_trade,win_loss_ratio
+Ensemble_Holding,3643.018371290907,1.5546533685378774,28.99628252788104,-2315.7220164105947,70,52.0431195898701,1.5393228083592703

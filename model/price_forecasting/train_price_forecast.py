@@ -374,7 +374,15 @@ def main(
 
     # Load and prepare data
     print("\nLoading and preparing dataset...")
-    df, feature_cols = prepare_price_forecasting_dataset(data_path)
+    print("⚠️  CRITICAL: Using REAL ENTSO-E price data (simulate_prices=False)")
+    print("   Simulated prices are NOT allowed in production training.")
+
+    # ✅ EXPLICITLY USE REAL DATA - NO SIMULATION
+    df, feature_cols = prepare_price_forecasting_dataset(
+        data_path,
+        simulate_prices=False,  # ✅ CRITICAL: Must use real data
+        strict_validation=True   # ✅ Crash if simulated data detected
+    )
 
     print(f"Dataset shape: {df.shape}")
     print(f"Number of features: {len(feature_cols)}")

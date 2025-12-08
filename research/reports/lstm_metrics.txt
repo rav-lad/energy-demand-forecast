@@ -1,0 +1,14 @@
+LSTM - Walk-Forward Results
+================================================================================
+
+mae: 22.5102
+rmse: 28.8349
+mape: inf
+r2: 0.4885
+direction_accuracy: 76.7812
+bias: 3.7964
+error_std: 28.5839
+error_q05: -44.0321
+error_q95: 51.9666
+max_overpredict: 97.0972
+max_underpredict: -170.7622

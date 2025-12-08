@@ -1,0 +1,38 @@
+HYPERPARAMETER TUNING COMPARISON
+================================================================================
+
+1. GridSearch Best Parameters:
+   colsample_bytree    : 0.8
+   gamma               : 0
+   learning_rate       : 0.03
+   max_depth           : 7
+   min_child_weight    : 3
+   n_estimators        : 200
+   reg_alpha           : 0.1
+   reg_lambda          : 1.0
+   subsample           : 0.8
+   MAE: 15.62 EUR/MWh
+
+2. Bayesian Optimization Best Parameters:
+   n_estimators        : 198
+   max_depth           : 10
+   learning_rate       : 0.01733010327859188
+   subsample           : 0.674841890471736
+   colsample_bytree    : 0.80527789662439
+   min_child_weight    : 6
+   gamma               : 0.35652544454406376
+   reg_alpha           : 0.2091121521088679
+   reg_lambda          : 1.091079191163931
+   MAE: 15.99 EUR/MWh
+
+3. Adaptive Bayesian (Final Parameters):
+   n_estimators        : 250
+   max_depth           : 10
+   learning_rate       : 0.14907884894416698
+   subsample           : 0.8394633936788146
+   colsample_bytree    : 0.6624074561769746
+   min_child_weight    : 2
+   gamma               : 0.02904180608409973
+   reg_alpha           : 0.8661761457749352
+   reg_lambda          : 1.4016725176148133
+   MAE: 16.12 EUR/MWh

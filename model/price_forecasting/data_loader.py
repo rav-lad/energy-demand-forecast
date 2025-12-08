@@ -21,6 +21,119 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
+def validate_real_price_data(df: pd.DataFrame, data_source: str = "unknown") -> None:
+    """Validate that price data is real (not simulated).
+
+    This function performs sanity checks to detect simulated data:
+    - Check for reasonable price ranges
+    - Check for suspiciously low volatility
+    - Check for unrealistic patterns
+    - Verify data source metadata
+
+    Args:
+        df: DataFrame with 'price' column
+        data_source: Description of data source for logging
+
+    Raises:
+        ValueError: If data appears to be invalid or simulated
+    """
+    if 'price' not in df.columns:
+        raise ValueError("DataFrame must contain 'price' column")
+
+    prices = df['price'].dropna()
+
+    # Check 1: Must have reasonable sample size
+    if len(prices) < 1000:
+        logger.warning(
+            f"⚠️  Only {len(prices)} price observations - may be insufficient for production\n"
+            f"    Recommendation: Use at least 1 year of hourly data (~8760 observations)"
+        )
+
+    # Check 2: Check for negative prices (realistic for European power markets)
+    # But catch extremely negative prices that indicate corruption
+    # Note: European markets can reach -150 EUR/MWh during extreme renewable oversupply
+    if prices.min() < -200:
+        raise ValueError(
+            f"Extremely negative prices detected: {prices.min():.2f} EUR/MWh\n"
+            f"Realistic range for European markets: -150 to 500 EUR/MWh\n"
+            f"(Negative prices occur during renewable flush, but < -200 indicates issues)"
+        )
+
+    # Warn if many extreme negative prices
+    extreme_negative = (prices < -100).sum()
+    if extreme_negative > len(prices) * 0.01:  # More than 1%
+        logger.warning(
+            f"⚠️  Many extreme negative prices detected: {extreme_negative} observations < -100 EUR/MWh\n"
+            f"    This is {extreme_negative/len(prices)*100:.2f}% of data\n"
+            f"    Verify this is real market data (renewable oversupply events)"
+        )
+
+    # Check 3: Check for unrealistic max prices
+    if prices.max() > 3000:
+        raise ValueError(
+            f"Extremely high prices detected: {prices.max():.2f} EUR/MWh\n"
+            f"Realistic range for European markets: -20 to 500 EUR/MWh\n"
+            f"(Scarcity events may reach 1000-3000, but sustained high prices indicate issues)"
+        )
+
+    # Check 4: Check for suspicious lack of volatility (sign of simulation/aggregation)
+    price_std = prices.std()
+    price_mean = prices.mean()
+    cv = price_std / price_mean if price_mean > 0 else 0  # Coefficient of variation
+
+    if cv < 0.1:
+        logger.warning(
+            f"⚠️  Low price volatility detected (CV={cv:.3f})\n"
+            f"    Mean: {price_mean:.2f} EUR/MWh, Std: {price_std:.2f} EUR/MWh\n"
+            f"    This may indicate:\n"
+            f"      - Simulated data with low variance\n"
+            f"      - Daily/weekly aggregated data (should use hourly)\n"
+            f"      - Data quality issues\n"
+            f"    Typical hourly power price CV: 0.3-0.6"
+        )
+
+    # Check 5: Check for repeated values (sign of simulation or low-quality data)
+    value_counts = prices.value_counts()
+    max_repeats = value_counts.max()
+    if max_repeats > 10:
+        most_common_price = value_counts.idxmax()
+        logger.warning(
+            f"⚠️  Repeated price values detected\n"
+            f"    Price {most_common_price:.2f} EUR/MWh appears {max_repeats} times\n"
+            f"    This may indicate:\n"
+            f"      - Low-resolution simulated data\n"
+            f"      - Market closure periods (acceptable if < 1% of data)\n"
+            f"      - Data quality issues"
+        )
+
+    # Check 6: Validate timestamp coverage (if datetime column present)
+    if 'datetime_hour' in df.columns:
+        dates = pd.to_datetime(df['datetime_hour'])
+        date_range_days = (dates.max() - dates.min()).days
+        expected_hours = date_range_days * 24
+        actual_hours = len(dates)
+        coverage = actual_hours / expected_hours if expected_hours > 0 else 0
+
+        if coverage < 0.90:
+            logger.warning(
+                f"⚠️  Low timestamp coverage: {coverage:.1%}\n"
+                f"    Date range: {dates.min()} to {dates.max()} ({date_range_days} days)\n"
+                f"    Expected {expected_hours} hours, found {actual_hours}\n"
+                f"    Missing data: {expected_hours - actual_hours} hours ({(1-coverage)*100:.1f}%)\n"
+                f"    Impact: May reduce model accuracy, especially for hourly forecasting"
+            )
+
+    # ✅ VALIDATION PASSED
+    logger.info(
+        f"✅ Price data validation PASSED for '{data_source}'\n"
+        f"   Records: {len(prices):,}\n"
+        f"   Range: [{prices.min():.2f}, {prices.max():.2f}] EUR/MWh\n"
+        f"   Mean: {prices.mean():.2f} EUR/MWh ± {price_std:.2f}\n"
+        f"   Coefficient of Variation: {cv:.3f}\n"
+        f"   Negative prices: {(prices < 0).sum()} ({(prices < 0).sum()/len(prices)*100:.2f}%) [Expected for renewable flush]"
+    )
+
+
 def simulate_realistic_prices(
     load_data: pd.DataFrame,
     base_price: float = 50.0,
@@ -130,24 +243,63 @@ def simulate_realistic_prices(
 
 def load_price_and_load_data(
     data_path: str = "data/modified_data/energy_hourly_regional.csv",
-    simulate_prices: bool = True,
+    simulate_prices: bool = False,  # ✅ CHANGED: DEFAULTS TO REAL DATA
     random_seed: int = 42,
     price_file: str = "data/raw_data/market_prices/day_ahead_prices_FR.csv",
+    strict_validation: bool = True,  # ✅ NEW: Crash on simulated data in production
 ) -> pd.DataFrame:
     """Load energy load data and corresponding prices.
 
-    In production, this would load actual ENTSO-E day-ahead prices.
-    For development, it simulates realistic prices based on load data.
+    ⚠️ CRITICAL: This function MUST use REAL prices from ENTSO-E by default.
+    Simulated prices are ONLY for unit testing.
 
     Args:
         data_path: Path to hourly load data CSV file.
-        simulate_prices: If True, simulate prices based on load data.
-        random_seed: Random seed for price simulation.
-        price_file: Path to ENTSO-E price data CSV (used when simulate_prices=False).
+        simulate_prices: If True, simulate prices (ONLY for testing!).
+        random_seed: Random seed for price simulation (testing only).
+        price_file: Path to ENTSO-E price data CSV.
+        strict_validation: If True, crash if simulated prices detected in production.
 
     Returns:
         pd.DataFrame: Combined load and price data with features.
+
+    Raises:
+        RuntimeError: If simulate_prices=True and strict_validation=True.
     """
+    # ✅ CRITICAL SAFETY CHECK - PREVENT SIMULATED PRICES IN PRODUCTION
+    if simulate_prices and strict_validation:
+        raise RuntimeError(
+            "\n" + "="*80 + "\n"
+            "❌ CRITICAL ERROR: simulate_prices=True is NOT allowed in production!\n"
+            "\n"
+            "Simulated prices are only for unit testing.\n"
+            "They lack:\n"
+            "  - Real market events (geopolitical shocks, outages)\n"
+            "  - Actual correlation structures with fundamentals\n"
+            "  - Realistic bid-ask spreads and liquidity\n"
+            "\n"
+            "To use real data (REQUIRED for production):\n"
+            "  → Set simulate_prices=False (this is now the default)\n"
+            "\n"
+            "To test with synthetic data:\n"
+            "  → Set strict_validation=False (TESTING ONLY)\n"
+            "\n"
+            "All production training and backtesting MUST use real ENTSO-E data.\n"
+            + "="*80
+        )
+
+    # ✅ EXPLICIT WARNING IF USING SIMULATED PRICES
+    if simulate_prices:
+        logger.warning(
+            "\n" + "="*80 + "\n"
+            "⚠️  WARNING: Using SIMULATED prices!\n"
+            "\n"
+            "This is only acceptable for unit testing.\n"
+            "All production training and backtesting MUST use real ENTSO-E data.\n"
+            "\n"
+            "Set simulate_prices=False to use real data (this is now the default).\n"
+            + "="*80
+        )
     # Load load data
     if not Path(data_path).exists():
         raise FileNotFoundError(
@@ -237,6 +389,13 @@ def load_price_and_load_data(
 
         # Add load column (rename from conso_elec_mw)
         merged_df["load_mw"] = merged_df["conso_elec_mw"]
+
+        # ✅ VALIDATE REAL PRICE DATA (CRITICAL SAFETY CHECK)
+        if strict_validation:
+            validate_real_price_data(
+                merged_df,
+                data_source=f"ENTSO-E ({price_file})"
+            )
 
         logger.info(
             f"Loaded {len(merged_df)} records with real prices "
@@ -333,20 +492,32 @@ def add_lag_features(
 def prepare_price_forecasting_dataset(
     data_path: str = "data/modified_data/energy_hourly_regional.csv",
     target_col: str = "price",
+    simulate_prices: bool = False,  # ✅ NEW: Explicit control (defaults to REAL data)
+    strict_validation: bool = True,  # ✅ NEW: Safety check for production
     random_seed: int = 42,
 ) -> Tuple[pd.DataFrame, list]:
     """Prepare complete dataset for price forecasting.
 
+    ⚠️ CRITICAL: Uses REAL ENTSO-E prices by default.
+    Set simulate_prices=True ONLY for unit testing.
+
     Args:
         data_path: Path to hourly load data.
         target_col: Target variable column name.
+        simulate_prices: If True, use simulated prices (TESTING ONLY).
+        strict_validation: If True, crash on simulated prices in production.
         random_seed: Random seed for reproducibility.
 
     Returns:
         tuple: (DataFrame with all features, list of feature column names)
     """
     # Load price and load data
-    df = load_price_and_load_data(data_path, random_seed=random_seed)
+    df = load_price_and_load_data(
+        data_path,
+        simulate_prices=simulate_prices,
+        strict_validation=strict_validation,
+        random_seed=random_seed
+    )
 
     # Add calendar features
     df = add_calendar_features(df)

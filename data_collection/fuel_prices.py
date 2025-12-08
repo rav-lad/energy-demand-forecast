@@ -1,14 +1,33 @@
 """Fuel and carbon prices data collection and simulation.
 
+⚠️  CRITICAL NOTICE: REAL DATA REQUIRED FOR PRODUCTION
+================================================================================
+
+The simulation functions in this file (simulate_ttf_gas_prices, etc.) are
+ONLY for research prototyping and unit testing.
+
+For production trading:
+1. Subscribe to ICE, Bloomberg, or Refinitiv data feed
+2. Use load_fuel_prices() function below
+3. NEVER use simulated fuel prices for real trading decisions
+
+Simulated fuel prices lack:
+- Real correlation structures with power prices
+- Geopolitical events (Russia-Ukraine, pipeline outages)
+- Market microstructure (bid-ask spreads, liquidity)
+- Actual supply/demand fundamentals
+
+================================================================================
+
 This module provides functions to load and simulate fuel prices (natural gas,
 coal, carbon allowances) that are fundamental drivers of electricity prices
 in European markets.
 
-In production, this would interface with:
+In production, this MUST interface with:
 - ICE (Intercontinental Exchange) for EUA carbon prices
 - TTF (Title Transfer Facility) for Dutch gas hub prices
 - globalCOAL for API2 coal prices
-- EIA/Bloomberg for Brent oil prices
+- Bloomberg/Refinitiv for real-time data
 
 # Parameter Sources and Calibration
 
@@ -76,10 +95,260 @@ Calibration method: Fit correlated GBM, estimate covariance with gas prices
 """
 
 from typing import Optional, Tuple
+from pathlib import Path
+import logging
+import warnings
 
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# DEPRECATION WARNING FOR SIMULATED FUEL PRICES
+# ============================================================================
+
+def _deprecation_warning_fuel_simulation():
+    """Warn when using simulated fuel prices."""
+    warnings.warn(
+        "\n" + "="*80 + "\n"
+        "⚠️  WARNING: Using SIMULATED fuel prices!\n"
+        "\n"
+        "Simulated fuel prices are NOT suitable for production trading.\n"
+        "They lack:\n"
+        "  - Real correlations with power prices\n"
+        "  - Geopolitical events (Russia-Ukraine, pipeline outages)\n"
+        "  - Market microstructure (bid-ask spreads, liquidity)\n"
+        "  - Actual supply/demand fundamentals\n"
+        "\n"
+        "For production, you MUST use real data from:\n"
+        "  - ICE (Intercontinental Exchange)\n"
+        "  - Bloomberg Terminal\n"
+        "  - Refinitiv Eikon\n"
+        "\n"
+        "See load_fuel_prices() function for real data loader.\n"
+        + "="*80,
+        UserWarning,
+        stacklevel=3
+    )
+
+
+# ============================================================================
+# REAL DATA LOADER (REQUIRED FOR PRODUCTION)
+# ============================================================================
+
+def load_fuel_prices(
+    start_date: str,
+    end_date: str,
+    data_dir: str = "data/external/fuel_prices",
+    source: str = "csv",
+) -> pd.DataFrame:
+    """Load REAL fuel prices from external data source.
+
+    This function loads historical fuel prices from either:
+    - CSV files (for backtesting with downloaded data)
+    - Live API (for production inference)
+
+    Required Data Sources:
+    ----------------------
+    1. TTF Natural Gas: ICE Endex, PEGAS
+       - Contract: TTF Natural Gas Futures (Month-ahead)
+       - Units: EUR/MWh
+       - Frequency: Daily settlement prices
+
+    2. EUA Carbon Allowances: ICE ECX
+       - Contract: EUA Futures (Dec expiry)
+       - Units: EUR/tCO2
+       - Frequency: Daily settlement prices
+
+    3. Coal API2: globalCOAL, Argus
+       - Contract: API2 CIF ARA (Rotterdam)
+       - Units: EUR/tonne
+       - Frequency: Daily assessments
+
+    File Format (CSV):
+    -----------------
+    Expected directory structure:
+        data/external/fuel_prices/
+        ├── ttf_gas_eur_mwh.csv       # TTF gas prices
+        ├── eua_carbon_eur_tco2.csv   # EUA carbon prices
+        └── coal_api2_eur_tonne.csv   # Coal prices
+
+    Each CSV must have columns: [date, price]
+    Date format: YYYY-MM-DD
+
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        data_dir: Directory containing fuel price CSV files
+        source: Data source ('csv' or 'api')
+
+    Returns:
+        pd.DataFrame with columns:
+            - datetime: timestamp
+            - ttf_gas_price: EUR/MWh
+            - eua_carbon_price: EUR/tCO2
+            - coal_price: EUR/tonne
+
+    Raises:
+        FileNotFoundError: If CSV files not found
+        ValueError: If data quality checks fail
+
+    Example:
+        >>> fuel_prices = load_fuel_prices("2023-01-01", "2024-12-31")
+        >>> print(fuel_prices.head())
+    """
+    data_path = Path(data_dir)
+
+    # File paths
+    ttf_file = data_path / "ttf_gas_eur_mwh.csv"
+    eua_file = data_path / "eua_carbon_eur_tco2.csv"
+    coal_file = data_path / "coal_api2_eur_tonne.csv"
+
+    # Check if files exist
+    missing_files = []
+    for file in [ttf_file, eua_file, coal_file]:
+        if not file.exists():
+            missing_files.append(str(file))
+
+    if missing_files:
+        error_msg = (
+            f"❌ CRITICAL ERROR: Real fuel price data files not found!\n"
+            f"\n"
+            f"Missing files:\n"
+        )
+        for f in missing_files:
+            error_msg += f"  - {f}\n"
+
+        error_msg += (
+            f"\n"
+            f"To fix this:\n"
+            f"1. Download historical fuel prices from ICE/Bloomberg\n"
+            f"2. Place CSV files in: {data_dir}\n"
+            f"3. Required format: columns [date, price]\n"
+            f"\n"
+            f"Data Sources:\n"
+            f"  - TTF Gas: https://www.theice.com/products/27996665/dutch-ttf-gas-futures\n"
+            f"  - EUA Carbon: https://www.theice.com/products/197/eua-futures\n"
+            f"  - Coal API2: https://www.globalcoal.com/ or Argus Media\n"
+            f"\n"
+            f"Temporary workaround (TESTING ONLY):\n"
+            f"  - Use generate_fuel_price_features() with simulated=True\n"
+            f"  - WARNING: Results will not be production-valid!\n"
+        )
+        raise FileNotFoundError(error_msg)
+
+    # Load data
+    logger.info(f"Loading real fuel prices from {data_dir}")
+
+    ttf_df = pd.read_csv(ttf_file, parse_dates=['date'])
+    eua_df = pd.read_csv(eua_file, parse_dates=['date'])
+    coal_df = pd.read_csv(coal_file, parse_dates=['date'])
+
+    # Rename columns
+    ttf_df = ttf_df.rename(columns={'date': 'datetime', 'price': 'ttf_gas_price'})
+    eua_df = eua_df.rename(columns={'date': 'datetime', 'price': 'eua_carbon_price'})
+    coal_df = coal_df.rename(columns={'date': 'datetime', 'price': 'coal_price'})
+
+    # Merge on datetime
+    fuel_df = ttf_df.merge(eua_df, on='datetime', how='outer')
+    fuel_df = fuel_df.merge(coal_df, on='datetime', how='outer')
+
+    # Filter date range
+    fuel_df['datetime'] = pd.to_datetime(fuel_df['datetime'])
+    mask = (fuel_df['datetime'] >= start_date) & (fuel_df['datetime'] <= end_date)
+    fuel_df = fuel_df[mask].copy()
+
+    # Forward fill missing values (weekends, holidays)
+    fuel_df = fuel_df.sort_values('datetime')
+    fuel_df[['ttf_gas_price', 'eua_carbon_price', 'coal_price']] = \
+        fuel_df[['ttf_gas_price', 'eua_carbon_price', 'coal_price']].fillna(method='ffill')
+
+    # Data quality checks
+    for col in ['ttf_gas_price', 'eua_carbon_price', 'coal_price']:
+        missing_pct = fuel_df[col].isna().sum() / len(fuel_df)
+        if missing_pct > 0.1:
+            raise ValueError(
+                f"Too many missing values in {col}: {fuel_df[col].isna().sum()} / {len(fuel_df)} ({missing_pct*100:.1f}%)"
+            )
+
+    # Validate price ranges
+    if not (5 <= fuel_df['ttf_gas_price'].mean() <= 200):
+        logger.warning(f"⚠️  TTF gas price outside expected range: {fuel_df['ttf_gas_price'].mean():.2f} EUR/MWh")
+
+    if not (20 <= fuel_df['eua_carbon_price'].mean() <= 150):
+        logger.warning(f"⚠️  EUA carbon price outside expected range: {fuel_df['eua_carbon_price'].mean():.2f} EUR/tCO2")
+
+    if not (50 <= fuel_df['coal_price'].mean() <= 300):
+        logger.warning(f"⚠️  Coal price outside expected range: {fuel_df['coal_price'].mean():.2f} EUR/tonne")
+
+    logger.info(
+        f"✅ Loaded {len(fuel_df)} days of real fuel prices\n"
+        f"   TTF Gas: {fuel_df['ttf_gas_price'].mean():.2f} EUR/MWh (±{fuel_df['ttf_gas_price'].std():.2f})\n"
+        f"   EUA Carbon: {fuel_df['eua_carbon_price'].mean():.2f} EUR/tCO2 (±{fuel_df['eua_carbon_price'].std():.2f})\n"
+        f"   Coal API2: {fuel_df['coal_price'].mean():.2f} EUR/tonne (±{fuel_df['coal_price'].std():.2f})"
+    )
+
+    return fuel_df
+
+
+def calculate_spreads(
+    power_price: pd.Series,
+    ttf_gas_price: pd.Series,
+    eua_carbon_price: pd.Series,
+    coal_price: pd.Series,
+) -> pd.DataFrame:
+    """Calculate spark and dark spreads from fuel prices.
+
+    Spark Spread = Power - (Gas / η_gas) - (Carbon × emission_gas)
+    Dark Spread = Power - (Coal / η_coal) - (Carbon × emission_coal)
+
+    Where:
+        η_gas = 0.55 (CCGT efficiency)
+        emission_gas = 0.35 tCO2/MWh
+        η_coal = 0.38 (coal plant efficiency)
+        emission_coal = 0.95 tCO2/MWh
+
+    Args:
+        power_price: Electricity price (EUR/MWh)
+        ttf_gas_price: TTF gas price (EUR/MWh)
+        eua_carbon_price: EUA carbon price (EUR/tCO2)
+        coal_price: Coal price (EUR/tonne)
+
+    Returns:
+        DataFrame with spark_spread, dark_spread, clean_spark_spread
+    """
+    # Efficiencies and emissions
+    CCGT_EFFICIENCY = 0.55
+    COAL_EFFICIENCY = 0.38
+    GAS_EMISSION = 0.35  # tCO2/MWh
+    COAL_EMISSION = 0.95  # tCO2/MWh
+    COAL_HEAT_RATE = 7.0  # MWh per tonne (API2 coal)
+
+    # Spark spread (gas CCGT)
+    gas_cost = ttf_gas_price / CCGT_EFFICIENCY
+    gas_carbon_cost = eua_carbon_price * GAS_EMISSION
+    spark_spread = power_price - gas_cost - gas_carbon_cost
+
+    # Dark spread (coal plant)
+    coal_cost = (coal_price / COAL_HEAT_RATE) / COAL_EFFICIENCY
+    coal_carbon_cost = eua_carbon_price * COAL_EMISSION
+    dark_spread = power_price - coal_cost - coal_carbon_cost
+
+    # Clean spark spread (spark - dark)
+    clean_spark_spread = spark_spread - dark_spread
+
+    return pd.DataFrame({
+        'spark_spread': spark_spread,
+        'dark_spread': dark_spread,
+        'clean_spark_spread': clean_spark_spread,
+    })
+
+
+# ============================================================================
+# SIMULATION FUNCTIONS (TESTING ONLY - NOT FOR PRODUCTION)
+# ============================================================================
 
 def simulate_ttf_gas_prices(
     dates: pd.DatetimeIndex,
@@ -344,56 +613,86 @@ def calculate_clean_spread(
 def generate_fuel_price_features(
     dates: pd.DatetimeIndex,
     power_prices: Optional[pd.Series] = None,
+    data_dir: str = "data/external/fuel_prices",
+    simulated: bool = False,  # ✅ NEW: Explicit flag (defaults to REAL data)
     random_seed: int = 42,
 ) -> pd.DataFrame:
     """Generate comprehensive fuel price dataset with all features.
 
-    This function simulates all fuel prices and calculates derived features
-    (spreads, ratios) that are predictive of electricity prices.
+    ⚠️ CRITICAL: Uses REAL fuel prices by default.
+    Set simulated=True ONLY for unit testing.
+
+    This function loads real fuel prices (or simulates for testing) and calculates
+    derived features (spreads, ratios) that are predictive of electricity prices.
 
     Args:
-        dates: Datetime index for simulation.
+        dates: Datetime index for features.
         power_prices: Optional electricity prices for spread calculation.
-        random_seed: Random seed for reproducibility.
+        data_dir: Directory with real fuel price CSVs.
+        simulated: If True, use simulation (TESTING ONLY).
+        random_seed: Random seed for simulation (if simulated=True).
 
     Returns:
         pd.DataFrame: Complete fuel price feature set with columns:
             - ttf_gas_price: TTF natural gas price (EUR/MWh)
             - eua_carbon_price: EUA carbon price (EUR/tCO2)
-            - coal_price: API2 coal price (EUR/MWh equivalent)
+            - coal_price: API2 coal price (EUR/tonne)
             - spark_spread: Gas-to-power margin (EUR/MWh) [if power_prices provided]
             - dark_spread: Coal-to-power margin (EUR/MWh) [if power_prices provided]
-            - clean_spread: Gas vs coal profitability (EUR/MWh) [if power_prices provided]
+            - clean_spark_spread: Gas vs coal profitability [if power_prices provided]
             - gas_carbon_ratio: Gas price / carbon price
             - coal_carbon_ratio: Coal price / carbon price
     """
-    # Simulate fuel prices
-    ttf = simulate_ttf_gas_prices(dates, random_seed=random_seed)
-    eua = simulate_eua_carbon_prices(dates, random_seed=random_seed)
-    coal = simulate_coal_prices(dates, ttf_prices=ttf, random_seed=random_seed)
+    if simulated:
+        # ✅ EXPLICIT WARNING
+        _deprecation_warning_fuel_simulation()
 
-    # Create DataFrame
-    df = pd.DataFrame({"ttf_gas_price": ttf, "eua_carbon_price": eua, "coal_price": coal})
+        # Use legacy simulation functions
+        ttf = simulate_ttf_gas_prices(dates, random_seed=random_seed)
+        eua = simulate_eua_carbon_prices(dates, random_seed=random_seed)
+        coal = simulate_coal_prices(dates, ttf_prices=ttf, random_seed=random_seed)
 
-    # Add spreads if power prices provided
+        fuel_df = pd.DataFrame({
+            'datetime': dates,
+            'ttf_gas_price': ttf.values,
+            'eua_carbon_price': eua.values,
+            'coal_price': coal.values,
+        })
+    else:
+        # ✅ LOAD REAL DATA
+        start_date = dates.min().strftime('%Y-%m-%d')
+        end_date = dates.max().strftime('%Y-%m-%d')
+
+        fuel_df = load_fuel_prices(start_date, end_date, data_dir=data_dir)
+
+        # Align to requested dates (interpolate if needed)
+        fuel_df = fuel_df.set_index('datetime')
+        fuel_df = fuel_df.reindex(dates, method='ffill')
+        fuel_df = fuel_df.reset_index()
+
+    # Calculate spreads if power prices provided
     if power_prices is not None:
         # Ensure same index
         power_prices = power_prices.reindex(dates)
 
-        df["spark_spread"] = calculate_spark_spread(power_prices, ttf, eua)
-        df["dark_spread"] = calculate_dark_spread(power_prices, coal, eua)
-        df["clean_spread"] = calculate_clean_spread(df["spark_spread"], df["dark_spread"])
+        spreads = calculate_spreads(
+            power_prices,
+            fuel_df['ttf_gas_price'],
+            fuel_df['eua_carbon_price'],
+            fuel_df['coal_price'],
+        )
+        fuel_df = pd.concat([fuel_df, spreads], axis=1)
 
     # Add fuel-carbon ratios (important for merit order)
-    df["gas_carbon_ratio"] = df["ttf_gas_price"] / df["eua_carbon_price"]
-    df["coal_carbon_ratio"] = df["coal_price"] / df["eua_carbon_price"]
+    fuel_df["gas_carbon_ratio"] = fuel_df["ttf_gas_price"] / fuel_df["eua_carbon_price"]
+    fuel_df["coal_carbon_ratio"] = fuel_df["coal_price"] / fuel_df["eua_carbon_price"]
 
     # Add fuel price changes (momentum features)
-    df["ttf_gas_pct_change"] = df["ttf_gas_price"].pct_change()
-    df["eua_carbon_pct_change"] = df["eua_carbon_price"].pct_change()
-    df["coal_pct_change"] = df["coal_price"].pct_change()
+    fuel_df["ttf_gas_pct_change"] = fuel_df["ttf_gas_price"].pct_change()
+    fuel_df["eua_carbon_pct_change"] = fuel_df["eua_carbon_price"].pct_change()
+    fuel_df["coal_pct_change"] = fuel_df["coal_price"].pct_change()
 
-    return df
+    return fuel_df
 
 
 def load_or_simulate_fuel_prices(

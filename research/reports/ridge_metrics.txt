@@ -1,0 +1,17 @@
+Walk-Forward Validation Results: ridge
+================================================================================
+
+mae: 18.7433
+rmse: 24.6906
+mape: inf
+r2: 0.6025
+direction_accuracy: 73.4177
+bias: -4.3830
+error_std: 24.2985
+error_q05: -42.3239
+error_q95: 33.7503
+max_overpredict: 100.1280
+max_underpredict: -132.5433
+n_predictions: 7032
+n_iterations: 353
+coverage_hours: 8447.0000

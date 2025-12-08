@@ -54,31 +54,27 @@ class PriceForecaster(ABC):
         pass
 
     def evaluate(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
-        """Evaluate model performance.
+        """Evaluate model performance using corrected metrics.
+
+        ⚠️ Uses sMAPE as primary metric (MAPE is unreliable for power prices).
 
         Args:
             X: Feature DataFrame.
             y: True prices.
 
         Returns:
-            dict: Performance metrics.
+            dict: Performance metrics including sMAPE, MAE, RMSE, R², etc.
         """
+        from model.price_forecasting.metrics import calculate_all_metrics
+
         y_pred = self.predict(X)
 
-        metrics = {
-            "rmse": np.sqrt(mean_squared_error(y, y_pred)),
-            "mae": mean_absolute_error(y, y_pred),
-            "r2": r2_score(y, y_pred),
-            "mape": np.mean(np.abs((y - y_pred) / (y + 1e-8))) * 100,
-        }
-
-        # Directional accuracy
-        if len(y) > 1:
-            y_diff = np.diff(y)
-            pred_diff = np.diff(y_pred)
-            metrics["directional_accuracy"] = (
-                np.mean(np.sign(y_diff) == np.sign(pred_diff)) * 100
-            )
+        # Use comprehensive metrics from metrics module
+        metrics = calculate_all_metrics(
+            y_true=y.values,
+            y_pred=y_pred,
+            mape_threshold=5.0
+        )
 
         return metrics
 
