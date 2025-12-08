@@ -493,19 +493,6 @@ energy-demand-forecast/
 6. **European Energy Exchange (EEX)**: https://www.eex.com/
 7. **Intercontinental Exchange (ICE)**: https://www.theice.com/
 
----
-
-## Citation
-
-```bibtex
-@misc{energy_trading_2024,
-  title={Machine Learning-Based Trading Strategy for French Power Futures},
-  author={Energy Trading Research Team},
-  year={2024},
-  howpublished={\url{https://github.com/yourusername/energy-demand-forecast}},
-  note={Sharpe Ratio 1.55, Quantitative Research Study}
-}
-```
 
 ---
 
@@ -518,15 +505,13 @@ MIT License - See LICENSE file for details.
 ## Contact
 
 For questions or collaboration:
-- **GitHub**: https://github.com/yourusername/energy-demand-forecast
-- **Issues**: https://github.com/yourusername/energy-demand-forecast/issues
+- **GitHub**: https://github.com/rav-lad/energy-demand-forecast
+- **Issues**: https://github.com/rav-lad/energy-demand-forecast/issues
 
 ---
 
 **Last Updated**: 2024-12-08
 **Version**: 1.0.0
 **Status**: Research Complete, Production Pipeline Ready
-
-**Achievement Unlocked**: Sharpe Ratio 1.55 (Institutional-Grade Performance) 🏆
 
 ---
