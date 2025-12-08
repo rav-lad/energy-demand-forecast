@@ -2,9 +2,13 @@
 
 **A Quantitative Research Study on Electricity Price Forecasting and Algorithmic Trading**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Sharpe Ratio](https://img.shields.io/badge/sharpe-1.55-success)]()
-[![Status](https://img.shields.io/badge/status-research--complete-brightgreen)]()
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3.0-orange.svg)](https://scikit-learn.org/)
+[![XGBoost](https://img.shields.io/badge/XGBoost-2.0.0-red.svg)](https://xgboost.readthedocs.io/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-4.1.0-yellow.svg)](https://lightgbm.readthedocs.io/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0.0-ee4c2c.svg)](https://pytorch.org/)
+[![Pandas](https://img.shields.io/badge/pandas-2.0.0-150458.svg)](https://pandas.pydata.org/)
+[![NumPy](https://img.shields.io/badge/numpy-1.24.0-013243.svg)](https://numpy.org/)
 
 ---
 
