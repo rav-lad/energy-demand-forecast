@@ -472,18 +472,22 @@ def add_lag_features(
         df[f"{target_col}_lag_{lag}h"] = df[target_col].shift(lag)
 
     # Rolling statistics
+    # FIXED: Use shift(1) before rolling to avoid data leakage.
+    # At prediction time t, we only know target values up to t-1.
+    # Without shift(1), the rolling window includes the current value
+    # which is the target we're trying to predict.
     for window in [24, 168]:  # 1 day, 1 week
         df[f"{target_col}_roll_mean_{window}h"] = (
-            df[target_col].rolling(window=window, min_periods=1).mean()
+            df[target_col].shift(1).rolling(window=window, min_periods=1).mean()
         )
         df[f"{target_col}_roll_std_{window}h"] = (
-            df[target_col].rolling(window=window, min_periods=1).std()
+            df[target_col].shift(1).rolling(window=window, min_periods=1).std()
         )
         df[f"{target_col}_roll_min_{window}h"] = (
-            df[target_col].rolling(window=window, min_periods=1).min()
+            df[target_col].shift(1).rolling(window=window, min_periods=1).min()
         )
         df[f"{target_col}_roll_max_{window}h"] = (
-            df[target_col].rolling(window=window, min_periods=1).max()
+            df[target_col].shift(1).rolling(window=window, min_periods=1).max()
         )
 
     return df

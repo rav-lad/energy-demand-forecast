@@ -50,6 +50,8 @@ class TradingConfig:
     MIN_HOLDING_DAYS = 2
     VOL_FILTER_QUANTILE = 0.85
     DAYS_PER_YEAR = 252
+    # Out-of-sample holdout: last N days are NEVER used for parameter tuning
+    HOLDOUT_DAYS = 60
 
 
 def load_ml_predictions() -> Dict[str, pd.DataFrame]:
@@ -278,28 +280,40 @@ def generate_positions(df_spot: pd.DataFrame) -> pd.DataFrame:
     print("STEP 6: GENERATING POSITIONS")
     print("="*80)
 
-    # Calculate adaptive thresholds
-    signal_threshold_long = df_spot['signal_ensemble'].quantile(TradingConfig.SIGNAL_THRESHOLD_QUANTILE)
-    signal_threshold_short = df_spot['signal_ensemble'].quantile(1 - TradingConfig.SIGNAL_THRESHOLD_QUANTILE)
+    # FIXED: Use expanding (causal) quantiles instead of full-sample quantiles
+    # to avoid strategy parameter snooping. At each day t, thresholds are
+    # computed only from signals observed up to day t-1.
+    signal_expanding_long = df_spot['signal_ensemble'].expanding(min_periods=30).quantile(
+        TradingConfig.SIGNAL_THRESHOLD_QUANTILE
+    ).shift(1)
+    signal_expanding_short = df_spot['signal_ensemble'].expanding(min_periods=30).quantile(
+        1 - TradingConfig.SIGNAL_THRESHOLD_QUANTILE
+    ).shift(1)
 
-    print(f"  Adaptive thresholds:")
-    print(f"    Long:  signal > {signal_threshold_long:.3f}")
-    print(f"    Short: signal < {signal_threshold_short:.3f}")
+    # Fallback for first 30 days: use a conservative fixed threshold
+    signal_expanding_long = signal_expanding_long.fillna(0.5)
+    signal_expanding_short = signal_expanding_short.fillna(-0.5)
+
+    print(f"  Adaptive thresholds (expanding, causal):")
+    print(f"    Long  (last): signal > {signal_expanding_long.iloc[-1]:.3f}")
+    print(f"    Short (last): signal < {signal_expanding_short.iloc[-1]:.3f}")
 
     # Generate positions with holding period constraint
     positions = []
     days_held = 0
     current_pos = 0.0
 
-    for idx, row in df_spot.iterrows():
+    for i, (idx, row) in enumerate(df_spot.iterrows()):
         signal = row['signal_ensemble']
         agreement = row['signal_agreement']
         regime_ok = row['regime_filter']
+        thresh_long = signal_expanding_long.iloc[i]
+        thresh_short = signal_expanding_short.iloc[i]
 
         # Determine desired position
         if not regime_ok or agreement == 1:
             desired_pos = 0.0
-        elif abs(signal) < abs(signal_threshold_short):
+        elif signal < thresh_long and signal > thresh_short:
             desired_pos = 0.0
         else:
             conviction = min(abs(signal), 2.0)
@@ -320,10 +334,18 @@ def generate_positions(df_spot: pd.DataFrame) -> pd.DataFrame:
 
     df_spot['position'] = positions
 
+    # Mark holdout period for separate evaluation
+    holdout_start = len(df_spot) - TradingConfig.HOLDOUT_DAYS
+    df_spot['is_holdout'] = False
+    if holdout_start > 0:
+        df_spot.iloc[holdout_start:, df_spot.columns.get_loc('is_holdout')] = True
+
     print(f"\n  Positions generated:")
     print(f"    Days in position: {(df_spot['position'] != 0).sum()} / {len(df_spot)}")
     print(f"    Avg position size: {df_spot['position'].abs().mean():.2f} MW")
     print(f"    Max position size: {df_spot['position'].abs().max():.2f} MW")
+    if holdout_start > 0:
+        print(f"    Holdout period: last {TradingConfig.HOLDOUT_DAYS} days (from index {holdout_start})")
 
     return df_spot
 
@@ -382,7 +404,7 @@ def calculate_pnl(df_spot: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
         'win_loss_ratio': win_loss_ratio
     }
 
-    print(f"\n  Performance Metrics:")
+    print(f"\n  Performance Metrics (FULL PERIOD):")
     print(f"    Total PnL:        EUR {total_pnl:>10,.2f}")
     print(f"    Sharpe Ratio:     {sharpe:>10.3f}")
     print(f"    Hit Ratio:        {hit_ratio:>10.1f}%")
@@ -390,6 +412,27 @@ def calculate_pnl(df_spot: pd.DataFrame) -> Tuple[pd.DataFrame, Dict]:
     print(f"    Avg PnL/Trade:    EUR {metrics['avg_pnl_per_trade']:>10,.2f}")
     print(f"    Max Drawdown:     EUR {max_dd:>10,.2f}")
     print(f"    Win/Loss Ratio:   {win_loss_ratio:>10.3f}")
+
+    # Report holdout (out-of-sample) metrics separately
+    if 'is_holdout' in df_spot.columns and df_spot['is_holdout'].any():
+        pnl_oos = df_spot.loc[df_spot['is_holdout'], 'pnl_net'].dropna()
+        pnl_is = df_spot.loc[~df_spot['is_holdout'], 'pnl_net'].dropna()
+
+        sharpe_oos = (pnl_oos.mean() / pnl_oos.std()) * np.sqrt(TradingConfig.DAYS_PER_YEAR) if pnl_oos.std() > 0 else 0
+        sharpe_is = (pnl_is.mean() / pnl_is.std()) * np.sqrt(TradingConfig.DAYS_PER_YEAR) if pnl_is.std() > 0 else 0
+
+        metrics['sharpe_in_sample'] = sharpe_is
+        metrics['sharpe_out_of_sample'] = sharpe_oos
+        metrics['pnl_in_sample'] = pnl_is.sum()
+        metrics['pnl_out_of_sample'] = pnl_oos.sum()
+        metrics['holdout_days'] = TradingConfig.HOLDOUT_DAYS
+
+        print(f"\n  IN-SAMPLE (train period):")
+        print(f"    Sharpe Ratio:     {sharpe_is:>10.3f}")
+        print(f"    Total PnL:        EUR {pnl_is.sum():>10,.2f}")
+        print(f"\n  OUT-OF-SAMPLE (holdout, last {TradingConfig.HOLDOUT_DAYS} days):")
+        print(f"    Sharpe Ratio:     {sharpe_oos:>10.3f}")
+        print(f"    Total PnL:        EUR {pnl_oos.sum():>10,.2f}")
 
     return df_spot, metrics
 

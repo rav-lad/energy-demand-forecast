@@ -210,51 +210,68 @@ class BayesianHyperparameterTuner:
         target_col: str = 'price',
         validation_days: int = 90
     ) -> float:
-        """Evaluate hyperparameters using time series validation.
+        """Evaluate hyperparameters using time series cross-validation.
+
+        FIXED: Previously used a single fixed train-test split, which caused
+        hyperparameters to overfit to one specific test window. Now uses
+        expanding-window time series CV with 3 folds for more robust estimation.
 
         Args:
             params: Hyperparameters to evaluate
             df: Dataset
             feature_cols: Feature columns
             target_col: Target column
-            validation_days: Days to use for validation
+            validation_days: Total days to use for validation (split into 3 folds)
 
         Returns:
-            MAE score
+            Mean MAE across folds
         """
-        # Use last validation_days for testing
-        n_test = validation_days * 24
-        n_train = len(df) - n_test
+        n_total_test = validation_days * 24
+        n_folds = 3
+        fold_size = n_total_test // n_folds
+        n_base_train = len(df) - n_total_test
 
-        if n_train < 100:
+        if n_base_train < 100:
             raise ValueError("Not enough data for validation")
 
-        # Split
-        train_df = df.iloc[:n_train]
-        test_df = df.iloc[n_train:n_train + n_test]
+        fold_scores = []
 
-        # Train model
-        if self.model_type == 'xgboost':
-            model = xgb.XGBRegressor(
-                **params,
-                objective='reg:squarederror',
-                random_state=self.random_state,
-                n_jobs=-1,
-                verbosity=0
-            )
-        else:
-            raise ValueError(f"Model type '{self.model_type}' not supported")
+        for fold in range(n_folds):
+            # Expanding window: each fold uses more training data
+            train_end = n_base_train + fold * fold_size
+            test_start = train_end
+            test_end = test_start + fold_size
 
-        X_train = train_df[feature_cols].values
-        y_train = train_df[target_col].values
-        X_test = test_df[feature_cols].values
-        y_test = test_df[target_col].values
+            train_df = df.iloc[:train_end]
+            test_df = df.iloc[test_start:test_end]
 
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+            if len(test_df) == 0:
+                continue
 
-        mae = mean_absolute_error(y_test, y_pred)
-        return mae
+            # Train model
+            if self.model_type == 'xgboost':
+                model = xgb.XGBRegressor(
+                    **params,
+                    objective='reg:squarederror',
+                    random_state=self.random_state,
+                    n_jobs=-1,
+                    verbosity=0
+                )
+            else:
+                raise ValueError(f"Model type '{self.model_type}' not supported")
+
+            X_train = train_df[feature_cols].values
+            y_train = train_df[target_col].values
+            X_test = test_df[feature_cols].values
+            y_test = test_df[target_col].values
+
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+
+            fold_mae = mean_absolute_error(y_test, y_pred)
+            fold_scores.append(fold_mae)
+
+        return np.mean(fold_scores) if fold_scores else float('inf')
 
     def optimize(
         self,

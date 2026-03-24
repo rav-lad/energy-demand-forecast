@@ -201,6 +201,70 @@ services:
     profiles:
       - trading
 
+  # ===========================================================================
+  # Scheduler Service (automated daily pipeline)
+  # ===========================================================================
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-scheduler
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./outputs:/app/outputs
+    environment:
+      - ENTSOE_API_KEY=${ENTSOE_API_KEY}
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - ALERT_EMAIL=${ALERT_EMAIL:-}
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-}
+    env_file:
+      - .env
+    working_dir: /app
+    command: python production/scheduler.py
+    networks:
+      - energy-trading-network
+    restart: unless-stopped
+
+  # ===========================================================================
+  # API Service (FastAPI for inference and monitoring)
+  # ===========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: energy-trading:latest
+    container_name: energy-trading-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./models:/app/models
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env
+    working_dir: /app
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - energy-trading-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 # =============================================================================
 # Networks
 # =============================================================================
