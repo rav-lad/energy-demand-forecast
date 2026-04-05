@@ -1,0 +1,55 @@
+version: '3.8'
+
+# =============================================================================
+# Monitoring Stack: Prometheus + Grafana
+# =============================================================================
+# Usage:
+#   docker-compose -f monitoring/docker-compose.monitoring.yml up -d
+#
+# Access:
+#   Grafana:    http://localhost:3000 (admin/admin)
+#   Prometheus: http://localhost:9090
+# =============================================================================
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: energy-trading-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=90d'
+    networks:
+      - energy-trading-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: energy-trading-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/trading_performance.json
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    networks:
+      - energy-trading-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  energy-trading-network:
+    external: true
+
+volumes:
+  prometheus-data:
+  grafana-data:

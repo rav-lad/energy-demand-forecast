@@ -67,13 +67,13 @@ def construct_futures_from_spot_fundamentals(
     Construct realistic futures prices using market microstructure principles.
 
     Methodology:
-    1. Base futures on forward-looking spot expectations
+    1. Base futures on backward-looking spot moving average (no look-ahead)
     2. Add term structure (contango for near months)
     3. Account for seasonal patterns
-    4. Add realistic basis risk
+    4. Add realistic basis risk (AR(1) mean-reverting process)
 
-    This approach is used by many academic papers and is more realistic
-    than pure simulation.
+    IMPORTANT: All computations use only past information (shift(1) + rolling).
+    No future spot prices are used in the construction.
 
     Based on:
     - Lucia, J. J., & Schwartz, E. S. (2002). Electricity prices and power derivatives
@@ -83,11 +83,13 @@ def construct_futures_from_spot_fundamentals(
     df[date_col] = pd.to_datetime(df[date_col])
     df = df.sort_values(date_col)
 
-    # Calculate rolling forward-looking average (market expectation)
-    # Futures anticipate spot, so we use forward-looking window
-    window = 21  # ~1 month forward
-    df['spot_forward_ma'] = df[price_col].rolling(window, min_periods=1).mean().shift(-window)
-    df['spot_forward_ma'] = df['spot_forward_ma'].fillna(method='bfill')
+    # Calculate backward-looking rolling average as market expectation proxy
+    # FIXED: Previously used .shift(-window) which created look-ahead bias
+    # by incorporating future spot prices into the futures construction.
+    # Now uses only past information available at the time of pricing.
+    window = 21  # ~1 month lookback
+    df['spot_forward_ma'] = df[price_col].shift(1).rolling(window, min_periods=1).mean()
+    df['spot_forward_ma'] = df['spot_forward_ma'].fillna(method='ffill')
 
     # Term structure components
 
@@ -106,7 +108,8 @@ def construct_futures_from_spot_fundamentals(
 
     # 3. Volatility risk premium
     # Higher vol periods command higher premium
-    spot_vol = df[price_col].rolling(21, min_periods=5).std()
+    # Use shift(1) to avoid using current day's price in the computation
+    spot_vol = df[price_col].shift(1).rolling(21, min_periods=5).std()
     vol_premium = (spot_vol / spot_vol.mean() - 1.0) * 2.0  # Normalized vol premium
 
     # Construct front-month futures
