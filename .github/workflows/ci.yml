@@ -51,6 +51,8 @@ jobs:
           black --check --diff src/ tests/ --exclude='/(\.git|\.venv|venv|env|__pycache__|\.pytest_cache)/'
 
       - name: Run tests
+        env:
+          PYTHONPATH: .
         run: |
           pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
 
@@ -65,14 +67,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Build all targets
         run: |
-          docker build --target trainer        -t energy-forecast/trainer:ci .
-          docker build --target inference      -t energy-forecast/inference:ci .
-          docker build --target dashboard      -t energy-forecast/dashboard:ci .
+          docker build --target trainer   -t energy-forecast/trainer:ci .
+          docker build --target inference -t energy-forecast/inference:ci .
+          docker build --target dashboard -t energy-forecast/dashboard:ci .
 
       - name: Smoke test — containers start and import src correctly
         run: |
