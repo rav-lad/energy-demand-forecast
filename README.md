@@ -163,6 +163,8 @@ GitHub Actions runs on every push to `main` and `develop`:
 
 ### Monitoring Dashboard
 
+[![Dashboard Demo](https://img.youtube.com/vi/MkgNhhLmYwE/maxresdefault.jpg)](https://youtu.be/MkgNhhLmYwE)
+
 A four-page Streamlit application at `dashboard/`:
 
 - **Data** — Dataset status, feature distributions, data quality checks
