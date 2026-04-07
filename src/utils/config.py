@@ -1,4 +1,5 @@
 """Production configuration for energy price forecasting and trading."""
+
 from pathlib import Path
 from datetime import datetime
 
@@ -9,10 +10,14 @@ MODEL_DIR = PROJECT_ROOT / "model/saved_models"
 REPORTS_DIR = PROJECT_ROOT / "research/reports"
 
 # Data paths
-UNIFIED_DATASET_PATH = DATA_DIR / "processed/price_forecasting_dataset_with_forecasts.csv"
+UNIFIED_DATASET_PATH = (
+    DATA_DIR / "processed/price_forecasting_dataset_with_forecasts.csv"
+)
 
 # Feature configuration
-FEATURE_FILE = DATA_DIR / "processed/price_forecasting_dataset_with_forecasts_features.txt"
+FEATURE_FILE = (
+    DATA_DIR / "processed/price_forecasting_dataset_with_forecasts_features.txt"
+)
 
 # Model configuration
 MODELS_TO_TRAIN = ["ridge", "xgboost"]  # Add "lightgbm", "lstm" when ready
@@ -33,11 +38,7 @@ TRADE_VOLUME = 1  # MWh per trade
 
 # Model hyperparameters
 MODEL_PARAMS = {
-    "ridge": {
-        "alpha": 10.0,
-        "solver": "lsqr",
-        "random_state": 42
-    },
+    "ridge": {"alpha": 10.0, "solver": "lsqr", "random_state": 42},
     "xgboost": {
         "objective": "reg:squarederror",
         "n_estimators": 300,
@@ -51,8 +52,8 @@ MODEL_PARAMS = {
         "reg_lambda": 1.0,
         "random_state": 42,
         "n_jobs": -1,
-        "verbosity": 0
-    }
+        "verbosity": 0,
+    },
 }
 
 # Logging
@@ -63,6 +64,6 @@ LOG_FILE = PROJECT_ROOT / "production/logs/production.log"
 PRODUCTION_MODE = False  # Set to True to disable verbose output
 
 # Adaptive Bayesian Tuning
-TUNE_FREQUENCY_DAYS = 30 # Re-tune every 30 days
-TUNING_ITERATIONS = 20   # Iterations for Bayesian Optimization
+TUNE_FREQUENCY_DAYS = 30  # Re-tune every 30 days
+TUNING_ITERATIONS = 20  # Iterations for Bayesian Optimization
 ADAPTIVE_MODEL_TYPE = "xgboost"

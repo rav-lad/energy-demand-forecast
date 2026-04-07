@@ -38,6 +38,7 @@ from src.utils.config import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_regression_data(n_samples=500, n_features=10, noise=0.1, seed=42):
     rng = np.random.default_rng(seed)
     X = rng.standard_normal((n_samples, n_features))
@@ -71,6 +72,7 @@ def make_ts_df(n_days=400, seed=0):
 # ---------------------------------------------------------------------------
 # EnsembleForecaster
 # ---------------------------------------------------------------------------
+
 
 class TestEnsembleForecaster:
 
@@ -175,6 +177,7 @@ class TestEnsembleForecaster:
 # Metrics
 # ---------------------------------------------------------------------------
 
+
 class TestSMAPE:
 
     def test_perfect_forecast(self):
@@ -254,7 +257,15 @@ class TestCalculateAllMetrics:
         y_true = np.random.uniform(40, 100, 200)
         y_pred = y_true + np.random.normal(0, 5, 200)
         metrics = calculate_all_metrics(y_true, y_pred)
-        for key in ["mae", "rmse", "r2", "smape", "bias", "max_error", "directional_accuracy"]:
+        for key in [
+            "mae",
+            "rmse",
+            "r2",
+            "smape",
+            "bias",
+            "max_error",
+            "directional_accuracy",
+        ]:
             assert key in metrics, f"Missing metric: {key}"
 
     def test_mae_positive(self):
@@ -288,6 +299,7 @@ class TestCalculateAllMetrics:
 # Config integrity
 # ---------------------------------------------------------------------------
 
+
 class TestConfig:
 
     def test_ensemble_weights_sum_to_one(self):
@@ -315,6 +327,7 @@ class TestConfig:
 # ---------------------------------------------------------------------------
 # Walk-forward validation (no-leakage smoke test)
 # ---------------------------------------------------------------------------
+
 
 class TestWalkForward:
 
@@ -382,6 +395,7 @@ class TestWalkForward:
 # ---------------------------------------------------------------------------
 # End-to-end smoke test
 # ---------------------------------------------------------------------------
+
 
 class TestEndToEnd:
     """Lightweight end-to-end test: data → features → train → predict → metrics."""

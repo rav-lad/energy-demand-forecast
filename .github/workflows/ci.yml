@@ -68,23 +68,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build base image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/base/Dockerfile
-          push: false
-          tags: energy-forecast/base:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build all service images
+      - name: Build all targets
         run: |
-          docker build -f docker/data-collector/Dockerfile -t energy-forecast/data-collector:ci .
-          docker build -f docker/trainer/Dockerfile         -t energy-forecast/trainer:ci .
-          docker build -f docker/inference/Dockerfile       -t energy-forecast/inference:ci .
-          docker build -f docker/backtest/Dockerfile        -t energy-forecast/backtest:ci .
-          docker build -f docker/dashboard/Dockerfile       -t energy-forecast/dashboard:ci .
+          docker build --target trainer        -t energy-forecast/trainer:ci .
+          docker build --target inference      -t energy-forecast/inference:ci .
+          docker build --target dashboard      -t energy-forecast/dashboard:ci .
 
       - name: Smoke test — containers start and import src correctly
         run: |

@@ -235,7 +235,9 @@ if __name__ == "__main__":
     logger.critical("This is a critical message")
 
     # Test file logging
-    file_logger = setup_logger("test_file", log_file="outputs_pipeline/logs/test.log", level=logging.DEBUG)
+    file_logger = setup_logger(
+        "test_file", log_file="outputs_pipeline/logs/test.log", level=logging.DEBUG
+    )
 
     file_logger.info("This goes to both console and file")
 

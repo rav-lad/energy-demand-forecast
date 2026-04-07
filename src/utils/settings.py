@@ -77,7 +77,9 @@ class DataConfig(BaseSettings):
     end_date: str = Field(default="2024-12-31", description="Data end date")
 
     # Regions
-    countries: List[str] = Field(default=["FR", "DE", "ES"], description="Country codes")
+    countries: List[str] = Field(
+        default=["FR", "DE", "ES"], description="Country codes"
+    )
 
     # API endpoints
     entsoe_api_url: str = "https://web-api.tp.entsoe.eu/api"
@@ -88,7 +90,8 @@ class DataConfig(BaseSettings):
     def validate_api_key(cls, v):
         if not v or v == "your_entsoe_api_key_here":
             raise ValueError(
-                "ENTSO-E API key not configured. " "Get one from https://transparency.entsoe.eu/"
+                "ENTSO-E API key not configured. "
+                "Get one from https://transparency.entsoe.eu/"
             )
         return v
 

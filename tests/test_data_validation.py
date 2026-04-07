@@ -30,6 +30,7 @@ from src.data.validator import DataValidator, ValidationResult
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_price_df(n=2000, mean=60.0, std=20.0, seed=42):
     """Create a realistic synthetic price DataFrame."""
     rng = np.random.default_rng(seed)
@@ -49,6 +50,7 @@ def make_load_df(n=2000, seed=0):
 # ---------------------------------------------------------------------------
 # validate_real_price_data
 # ---------------------------------------------------------------------------
+
 
 class TestValidateRealPriceData:
     """Unit tests for the price sanity-check function."""
@@ -92,6 +94,7 @@ class TestValidateRealPriceData:
 # add_calendar_features
 # ---------------------------------------------------------------------------
 
+
 class TestCalendarFeatures:
     """Tests for calendar feature engineering."""
 
@@ -99,12 +102,25 @@ class TestCalendarFeatures:
         df = make_price_df(n=100)
         result = add_calendar_features(df)
         expected = [
-            "hour", "day_of_week", "day_of_month", "day_of_year",
-            "week_of_year", "month", "quarter", "year",
-            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
-            "month_sin", "month_cos",
-            "is_weekend", "is_peak_hour", "is_night",
-            "is_winter", "is_summer",
+            "hour",
+            "day_of_week",
+            "day_of_month",
+            "day_of_year",
+            "week_of_year",
+            "month",
+            "quarter",
+            "year",
+            "hour_sin",
+            "hour_cos",
+            "dow_sin",
+            "dow_cos",
+            "month_sin",
+            "month_cos",
+            "is_weekend",
+            "is_peak_hour",
+            "is_night",
+            "is_winter",
+            "is_summer",
         ]
         for col in expected:
             assert col in result.columns, f"Missing column: {col}"
@@ -112,7 +128,14 @@ class TestCalendarFeatures:
     def test_cyclical_encoding_bounds(self):
         df = make_price_df(n=200)
         result = add_calendar_features(df)
-        for col in ["hour_sin", "hour_cos", "dow_sin", "dow_cos", "month_sin", "month_cos"]:
+        for col in [
+            "hour_sin",
+            "hour_cos",
+            "dow_sin",
+            "dow_cos",
+            "month_sin",
+            "month_cos",
+        ]:
             assert result[col].between(-1, 1).all(), f"{col} out of [-1, 1]"
 
     def test_binary_features_are_binary(self):
@@ -132,6 +155,7 @@ class TestCalendarFeatures:
 # add_lag_features — leakage prevention
 # ---------------------------------------------------------------------------
 
+
 class TestLagFeatures:
     """Critical: verify no data leakage in lag construction."""
 
@@ -142,7 +166,9 @@ class TestLagFeatures:
         lag_cols = [c for c in result.columns if "lag_" in c and "price" in c]
         for col in lag_cols:
             lag_hours = int(col.split("lag_")[1].replace("h", ""))
-            assert lag_hours >= 24, f"Data leakage: lag {lag_hours}h < 24h forecast horizon"
+            assert (
+                lag_hours >= 24
+            ), f"Data leakage: lag {lag_hours}h < 24h forecast horizon"
 
     def test_rolling_stats_shifted_by_24h(self):
         """Rolling windows must be shifted ≥24h to avoid leakage."""
@@ -173,6 +199,7 @@ class TestLagFeatures:
 # ---------------------------------------------------------------------------
 # simulate_realistic_prices
 # ---------------------------------------------------------------------------
+
 
 class TestSimulateRealisticPrices:
     """Tests for the price simulation used in unit tests."""
@@ -211,6 +238,7 @@ class TestSimulateRealisticPrices:
 # Temporal ordering / train-test split integrity
 # ---------------------------------------------------------------------------
 
+
 class TestTemporalOrdering:
     """Verify no future data leaks into training sets."""
 
@@ -243,6 +271,7 @@ class TestTemporalOrdering:
 # DataValidator (src/data/validator.py)
 # ---------------------------------------------------------------------------
 
+
 class TestDataValidatorWeather:
     """Tests for DataValidator.validate_weather_data."""
 
@@ -251,14 +280,16 @@ class TestDataValidatorWeather:
         rng = np.random.default_rng(42)
         temp_max = rng.uniform(10, 35, n)
         temp_min = temp_max - rng.uniform(2, 8, n)  # always < max
-        return pd.DataFrame({
-            "date": dates,
-            "temperature_2m_max": temp_max,
-            "temperature_2m_min": temp_min,
-            "precipitation_sum": rng.exponential(2, n),
-            "wind_speed_10m_max": rng.uniform(0, 60, n),
-            "shortwave_radiation_sum": rng.uniform(0, 8000, n),
-        })
+        return pd.DataFrame(
+            {
+                "date": dates,
+                "temperature_2m_max": temp_max,
+                "temperature_2m_min": temp_min,
+                "precipitation_sum": rng.exponential(2, n),
+                "wind_speed_10m_max": rng.uniform(0, 60, n),
+                "shortwave_radiation_sum": rng.uniform(0, 8000, n),
+            }
+        )
 
     def test_valid_weather_passes(self):
         df = self._make_weather()
@@ -293,11 +324,13 @@ class TestDataValidatorEnergy:
     """Tests for DataValidator.validate_energy_data."""
 
     def _make_energy(self, n=200):
-        return pd.DataFrame({
-            "date": pd.date_range("2023-01-01", periods=n, freq="D"),
-            "conso_elec_mw": np.random.uniform(20_000, 80_000, n),
-            "conso_gaz_mw": np.random.uniform(5_000, 30_000, n),
-        })
+        return pd.DataFrame(
+            {
+                "date": pd.date_range("2023-01-01", periods=n, freq="D"),
+                "conso_elec_mw": np.random.uniform(20_000, 80_000, n),
+                "conso_gaz_mw": np.random.uniform(5_000, 30_000, n),
+            }
+        )
 
     def test_valid_energy_passes(self):
         df = self._make_energy()
@@ -320,11 +353,13 @@ class TestDataValidatorMarketPrices:
     """Tests for DataValidator.validate_market_prices."""
 
     def _make_market(self, n=200):
-        return pd.DataFrame({
-            "date": pd.date_range("2023-01-01", periods=n, freq="D"),
-            "price_FR": np.random.uniform(30, 150, n),
-            "price_DE": np.random.uniform(25, 140, n),
-        })
+        return pd.DataFrame(
+            {
+                "date": pd.date_range("2023-01-01", periods=n, freq="D"),
+                "price_FR": np.random.uniform(30, 150, n),
+                "price_DE": np.random.uniform(25, 140, n),
+            }
+        )
 
     def test_valid_prices_pass(self):
         df = self._make_market()

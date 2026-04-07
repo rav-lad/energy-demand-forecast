@@ -27,6 +27,7 @@ from src.data.api_cache import ApiCache
 # EntsoeConnector
 # ---------------------------------------------------------------------------
 
+
 class TestEntsoeConnectorInit:
 
     def test_init_with_api_key(self):
@@ -52,7 +53,9 @@ class TestEntsoeConnectorInit:
 
     def test_cache_enabled(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            connector = EntsoeConnector(api_key="test_key", use_cache=True, cache_dir=tmpdir)
+            connector = EntsoeConnector(
+                api_key="test_key", use_cache=True, cache_dir=tmpdir
+            )
             assert connector.use_cache is True
             assert connector.cache is not None
 
@@ -136,6 +139,7 @@ class TestEntsoeConnectorRetry:
 # ApiCache
 # ---------------------------------------------------------------------------
 
+
 class TestApiCacheInit:
 
     def test_creates_cache_directory(self):
@@ -154,44 +158,92 @@ class TestApiCacheKeyGeneration:
 
     def test_same_params_same_key(self):
         cache = ApiCache(cache_dir="test_cache")
-        k1 = cache._get_cache_key(country="FR", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
-        k2 = cache._get_cache_key(country="FR", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
+        k1 = cache._get_cache_key(
+            country="FR",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            data_type="prices",
+        )
+        k2 = cache._get_cache_key(
+            country="FR",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            data_type="prices",
+        )
         assert k1 == k2
 
     def test_different_country_different_key(self):
         cache = ApiCache(cache_dir="test_cache")
-        k1 = cache._get_cache_key(country="FR", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
-        k2 = cache._get_cache_key(country="DE", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
+        k1 = cache._get_cache_key(
+            country="FR",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            data_type="prices",
+        )
+        k2 = cache._get_cache_key(
+            country="DE",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            data_type="prices",
+        )
         assert k1 != k2
 
     def test_different_dates_different_key(self):
         cache = ApiCache(cache_dir="test_cache")
-        k1 = cache._get_cache_key(country="FR", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
-        k2 = cache._get_cache_key(country="FR", start_date="2024-02-01", end_date="2024-02-28", data_type="prices")
+        k1 = cache._get_cache_key(
+            country="FR",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            data_type="prices",
+        )
+        k2 = cache._get_cache_key(
+            country="FR",
+            start_date="2024-02-01",
+            end_date="2024-02-28",
+            data_type="prices",
+        )
         assert k1 != k2
 
 
 class TestApiCacheSetGet:
 
     def _make_df(self, n=24):
-        return pd.DataFrame({
-            "datetime": pd.date_range("2024-01-01", periods=n, freq="h"),
-            "price_eur_mwh": [50.0 + i for i in range(n)],
-            "country": ["FR"] * n,
-        })
+        return pd.DataFrame(
+            {
+                "datetime": pd.date_range("2024-01-01", periods=n, freq="h"),
+                "price_eur_mwh": [50.0 + i for i in range(n)],
+                "country": ["FR"] * n,
+            }
+        )
 
     def test_cache_miss_returns_none(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir)
-            result = cache.get(country="FR", start_date="2024-01-01", end_date="2024-01-31", data_type="prices")
+            result = cache.get(
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-31",
+                data_type="prices",
+            )
             assert result is None
 
     def test_set_then_get_returns_data(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=7)
             df = self._make_df(24)
-            cache.set(df, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
-            result = cache.get(country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            cache.set(
+                df,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
+            result = cache.get(
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
             assert result is not None
             assert len(result) == 24
             assert "price_eur_mwh" in result.columns
@@ -200,8 +252,19 @@ class TestApiCacheSetGet:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=7)
             df = self._make_df(10)
-            cache.set(df, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
-            result = cache.get(country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            cache.set(
+                df,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
+            result = cache.get(
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
             assert list(result["price_eur_mwh"]) == list(df["price_eur_mwh"])
 
     def test_expired_cache_returns_none(self):
@@ -214,8 +277,19 @@ class TestApiCacheSetGet:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=-1)
             df = self._make_df(5)
-            cache.set(df, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
-            result = cache.get(country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            cache.set(
+                df,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
+            result = cache.get(
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
             assert result is None
 
     def test_different_queries_isolated(self):
@@ -223,11 +297,33 @@ class TestApiCacheSetGet:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=7)
             df_fr = self._make_df(12)
             df_de = self._make_df(6)
-            cache.set(df_fr, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
-            cache.set(df_de, country="DE", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            cache.set(
+                df_fr,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
+            cache.set(
+                df_de,
+                country="DE",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
 
-            result_fr = cache.get(country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
-            result_de = cache.get(country="DE", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            result_fr = cache.get(
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
+            result_de = cache.get(
+                country="DE",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
 
             assert len(result_fr) == 12
             assert len(result_de) == 6
@@ -244,11 +340,19 @@ class TestApiCacheStats:
     def test_stats_after_set(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=7)
-            df = pd.DataFrame({
-                "datetime": [datetime.now()],
-                "price_eur_mwh": [50.0],
-            })
-            cache.set(df, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            df = pd.DataFrame(
+                {
+                    "datetime": [datetime.now()],
+                    "price_eur_mwh": [50.0],
+                }
+            )
+            cache.set(
+                df,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
             stats = cache.get_stats()
             assert stats["total_entries"] == 1
             # File may be tiny but must be >= 0
@@ -258,7 +362,13 @@ class TestApiCacheStats:
         with tempfile.TemporaryDirectory() as tmpdir:
             cache = ApiCache(cache_dir=tmpdir, ttl_days=7)
             df = pd.DataFrame({"datetime": [datetime.now()], "price": [50.0]})
-            cache.set(df, country="FR", start_date="2024-01-01", end_date="2024-01-02", data_type="prices")
+            cache.set(
+                df,
+                country="FR",
+                start_date="2024-01-01",
+                end_date="2024-01-02",
+                data_type="prices",
+            )
             cache.clear()
             stats = cache.get_stats()
             assert stats["total_entries"] == 0
@@ -267,6 +377,7 @@ class TestApiCacheStats:
 # ---------------------------------------------------------------------------
 # Real API Integration (skipped without key)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(
     not os.getenv("ENTSOE_API_KEY"),
