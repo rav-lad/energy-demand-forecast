@@ -42,17 +42,17 @@ jobs:
       - name: Lint with flake8
         run: |
           # Stop build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.git,__pycache__,venv,env
+          flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.git,__pycache__,venv,env
+          flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Check code formatting with black
         run: |
-          black --check --diff . --exclude='/(\.git|\.venv|venv|env|__pycache__|\.pytest_cache)/'
+          black --check --diff src/ tests/ --exclude='/(\.git|\.venv|venv|env|__pycache__|\.pytest_cache)/'
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=. --cov-report=xml --cov-report=html --ignore=venv --ignore=env
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=html
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -65,13 +65,32 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t energy-trading:test .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Test Docker image
+      - name: Build base image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/base/Dockerfile
+          push: false
+          tags: energy-forecast/base:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build all service images
         run: |
-          docker run energy-trading:test python --version
-          docker run energy-trading:test pip list | grep pandas
+          docker build -f docker/data-collector/Dockerfile -t energy-forecast/data-collector:ci .
+          docker build -f docker/trainer/Dockerfile         -t energy-forecast/trainer:ci .
+          docker build -f docker/inference/Dockerfile       -t energy-forecast/inference:ci .
+          docker build -f docker/backtest/Dockerfile        -t energy-forecast/backtest:ci .
+          docker build -f docker/dashboard/Dockerfile       -t energy-forecast/dashboard:ci .
+
+      - name: Smoke test — containers start and import src correctly
+        run: |
+          docker run --rm energy-forecast/trainer:ci    python -c "from src.models.ensemble_model import EnsembleForecaster; print('trainer OK')"
+          docker run --rm energy-forecast/inference:ci  python -c "from src.models.data_loader import add_lag_features; print('inference OK')"
+          docker run --rm energy-forecast/dashboard:ci  python -c "import streamlit; print('dashboard OK')"
 
   security-scan:
     runs-on: ubuntu-latest

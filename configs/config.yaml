@@ -1,0 +1,241 @@
+# =====================================================
+# ENERGY PRICE FORECAST DSS - CONFIGURATION
+# =====================================================
+
+# Project Metadata
+project:
+  name: "Energy Price Forecast DSS"
+  version: "3.0.0"
+  description: "French electricity spot price forecasting with decision support and MLOps monitoring"
+
+# Paths Configuration
+paths:
+  # Data directories
+  data_root: "data"
+  raw_data: "data/raw_data"
+  modified_data: "data/modified_data"
+  transformed_data: "data/transformed_data"
+
+  # Raw data subdirectories
+  raw_energy: "data/raw_data/energy"
+  raw_weather: "data/raw_data/weather"
+  raw_market: "data/raw_data/market_prices"
+  raw_fundamentals: "data/raw_data/fundamentals"
+
+  # Models
+  models_root: "models"
+  demand_models: "models/demand_forecast"
+  price_models: "models/price_forecast"
+  scalers: "models/scalers"
+
+  # Trading
+  trading_root: "trading_system"
+  backtests: "research/reports"
+  signals: "trading_system/signals"
+
+  # Outputs
+  outputs: "outputs"
+  figures: "outputs/figures"
+  reports: "outputs/reports"
+  logs: "outputs/logs"
+
+# Data Collection Configuration
+data_collection:
+  # Energy data (ODRE)
+  energy:
+    api_url: "https://odre.opendatasoft.com/api/records/1.0/search/"
+    dataset_id: "consommation-quotidienne-brute-regionale"
+    start_date: "2023-01-01"
+    end_date: "2026-04-04"
+    regions:
+      - 11  # Île-de-France
+      - 24  # Centre-Val de Loire
+      - 27  # Bourgogne-Franche-Comté
+      - 28  # Normandie
+      - 32  # Hauts-de-France
+      - 44  # Grand Est
+      - 52  # Pays de la Loire
+      - 53  # Bretagne
+      - 75  # Nouvelle-Aquitaine
+      - 76  # Occitanie
+      - 84  # Auvergne-Rhône-Alpes
+      - 93  # Provence-Alpes-Côte d'Azur
+      - 94  # Corse
+
+  # Weather data (Open-Meteo or GraphCast)
+  weather:
+    provider: "open-meteo"  # or "graphcast"
+    api_url: "https://archive-api.open-meteo.com/v1/archive"
+    variables:
+      - temperature_2m_max
+      - temperature_2m_min
+      - temperature_2m_mean
+      - precipitation_sum
+      - windspeed_10m_max
+      - shortwave_radiation_sum
+      - sunshine_duration
+
+  # Market prices (ENTSO-E)
+  market:
+    provider: "entsoe"
+    api_url: "https://web-api.tp.entsoe.eu/api"
+    # Get your free API key at: https://transparency.entsoe.eu/
+    api_key_env_var: "ENTSOE_API_KEY"  # Set in .env file
+    countries:
+      - "FR"  # France
+      - "DE"  # Germany (for cross-border analysis)
+      - "ES"  # Spain
+      - "IT"  # Italy
+    price_types:
+      - "day_ahead"
+      - "intraday"  # If available
+
+    # API rate limiting (ENTSO-E free tier: 400 requests/minute)
+    rate_limit_rpm: 400
+    request_timeout: 30  # seconds
+    retry_attempts: 3
+    backoff_factor: 2.0  # exponential backoff multiplier
+
+    # Cache configuration
+    cache_enabled: true
+    cache_dir: "data/cache/entsoe"
+    cache_ttl_days: 7  # Time to live for cached data
+
+    # Data collection
+    incremental_update: true  # Only fetch new data since last update
+    last_update_tracker: "data/cache/.last_update.json"  # Track last successful update
+
+  # Fundamentals (ENTSO-E)
+  fundamentals:
+    variables:
+      - "generation_per_type"  # Production by source
+      - "load"  # Actual vs forecasted load
+      - "cross_border_flows"  # Imports/exports
+      - "installed_capacity"  # Capacity per source
+
+# GraphCast Configuration (Future)
+graphcast:
+  enabled: false
+  # Will be configured when integrating GraphCast
+  resolution: "0.25"  # degrees
+  forecast_horizon: 240  # hours (10 days)
+  variables:
+    - "temperature_2m"
+    - "u_component_of_wind_10m"
+    - "v_component_of_wind_10m"
+    - "total_precipitation"
+    - "surface_solar_radiation_downwards"
+
+# Model Training Configuration
+models:
+  # Demand forecasting models
+  demand_forecast:
+    xgboost:
+      frequency: "daily"  # or "hourly"
+      params:
+        n_estimators: 1000
+        learning_rate: 0.01
+        max_depth: 7
+        subsample: 0.8
+        colsample_bytree: 0.8
+
+    lightgbm:
+      frequency: "daily"
+      quantiles: [0.05, 0.5, 0.95]
+      params:
+        num_leaves: 31
+        learning_rate: 0.01
+        n_estimators: 1000
+
+    tft:
+      frequency: "daily"
+      max_epochs: 30
+      batch_size: 128
+      learning_rate: 0.001
+      hidden_size: 64
+      attention_head_size: 4
+      dropout: 0.1
+      max_encoder_length: 60
+      max_prediction_length: 7
+
+  # Price forecasting models (to be developed)
+  price_forecast:
+    enabled: true
+    target: "day_ahead_price"
+    features:
+      - "predicted_demand"
+      - "renewable_production_forecast"
+      - "residual_load"
+      - "weather_variables"
+      - "lagged_prices"
+
+# Walk-forward Validation Configuration
+walk_forward:
+  train_ratio: 0.80          # initial training split
+  retrain_frequency_days: 1  # daily retraining
+  forecast_horizon_hours: 24
+  holdout_days: 60           # final out-of-sample evaluation
+
+# Market Research Configuration
+research:
+  # Analysis to perform
+  analyses:
+    - "price_drivers"
+    - "demand_price_correlation"
+    - "weather_impact"
+    - "renewable_integration"
+    - "regional_dynamics"
+    - "seasonality"
+    - "extreme_events"
+
+  # Feature importance
+  feature_importance:
+    methods:
+      - "shap"
+      - "permutation"
+      - "partial_dependence"
+    top_n_features: 20
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_to_file: true
+  log_file: "outputs/logs/trading_research.log"
+  log_to_console: true
+
+# Visualization Configuration
+visualization:
+  style: "seaborn"
+  figsize: [12, 6]
+  dpi: 300
+  save_format: "png"
+  color_palette: "tab10"
+
+# Monitoring & Alerts
+monitoring:
+  enabled: true
+  dashboard_port: 8501  # streamlit default
+
+  drift_detection:
+    reference_window_pct: 0.70      # fraction of data used as training reference
+    monitoring_window_days: 60      # recent window for drift comparison
+    psi_threshold_warning: 0.10     # PSI: no significant drift below this
+    psi_threshold_critical: 0.25    # PSI: significant drift above this
+    ks_pvalue_threshold: 0.05       # KS test: p < threshold → distributions differ
+
+  performance_monitoring:
+    mae_degradation_threshold_pct: 20  # 30d MAE increase vs 90d average triggers retraining
+    trend_window_days: 30              # window for linear trend detection
+    anomaly_zscore_threshold: 3.5      # |z| above this flags anomalous model errors
+
+  calibration:
+    target_coverage_pct: 80        # expected p10–p90 interval coverage
+    max_calibration_drift_pp: 10   # max deviation in percentage points from target
+
+  retraining_triggers:
+    max_model_age_days: 30         # retrain if model file is older than this
+
+  alerts:
+    price_percentile_high: 90      # default high-price alert threshold
+    price_percentile_low: 10       # default low-price alert threshold

@@ -1,0 +1,10 @@
+Walk-Forward Validation Results: lightgbm_quantile
+================================================================================
+
+mae_p50: 15.0918
+rmse_p50: 21.3981
+r2_p50: 0.7520
+coverage_p10_p90: 0.8186
+mean_interval_width: 52.5561
+n_predictions: 5424
+n_iterations: 236

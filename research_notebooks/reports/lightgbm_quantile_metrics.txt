@@ -1,0 +1,19 @@
+LightGBM Quantile Regression - Walk-Forward Results
+================================================================================
+
+P50 (Median) Metrics:
+  mae: 13.6711
+  rmse: 19.0459
+  mape: 44.3549
+  r2: 0.8193
+  direction_accuracy: 76.3948
+  bias: 1.6694
+  error_std: 18.9726
+  error_q05: -28.1785
+  error_q95: 32.9154
+  max_overpredict: 114.5193
+  max_underpredict: -271.2246
+
+Quantile Interval Metrics:
+  Coverage [P10, P90]: 63.45%
+  Avg interval width: 33.00 EUR/MWh

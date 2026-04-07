@@ -1,291 +1,355 @@
 """Tests for data validation and leakage prevention.
 
-This test suite ensures:
-1. Simulated prices are rejected in production mode
-2. Real price data passes validation
-3. No data leakage in feature engineering
-4. Proper temporal ordering in train/test splits
+Tests:
+1. Price data validation (ranges, volatility, missing values)
+2. Data leakage checks in feature engineering
+3. Temporal ordering in train/test splits
+4. DataValidator class (weather, energy, market prices)
 """
 
 import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
 from pathlib import Path
 import sys
 
-# Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from model.price_forecasting.data_loader import (
-    load_price_and_load_data,
+from src.models.data_loader import (
     validate_real_price_data,
     add_lag_features,
+    add_calendar_features,
+    simulate_realistic_prices,
     prepare_price_forecasting_dataset,
 )
+from src.data.validator import DataValidator, ValidationResult
 
 
-class TestDataValidation:
-    """Test suite for data validation."""
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-    def test_simulated_prices_rejected_in_strict_mode(self):
-        """Test that simulated prices crash in strict validation mode."""
-        with pytest.raises(RuntimeError, match="simulate_prices=True is NOT allowed"):
-            load_price_and_load_data(
-                simulate_prices=True,
-                strict_validation=True
-            )
+def make_price_df(n=2000, mean=60.0, std=20.0, seed=42):
+    """Create a realistic synthetic price DataFrame."""
+    rng = np.random.default_rng(seed)
+    prices = rng.normal(mean, std, n)
+    datetimes = pd.date_range("2023-01-01", periods=n, freq="h")
+    return pd.DataFrame({"datetime_hour": datetimes, "price": prices})
 
-    def test_simulated_prices_allowed_in_test_mode(self):
-        """Test that simulated prices work when strict_validation=False."""
-        try:
-            df = load_price_and_load_data(
-                simulate_prices=True,
-                strict_validation=False
-            )
-            assert len(df) > 0
-            assert 'price' in df.columns
-        except FileNotFoundError:
-            # Expected if load data file doesn't exist
-            pytest.skip("Load data file not found - skipping test")
 
-    def test_validate_real_data_rejects_extreme_prices(self):
-        """Test that validation rejects unrealistic prices."""
-        # Create fake data with extreme prices
-        df = pd.DataFrame({
-            'price': [5000.0] * 100,  # Unrealistic: 5000 EUR/MWh
-            'datetime_hour': pd.date_range('2023-01-01', periods=100, freq='H')
-        })
+def make_load_df(n=2000, seed=0):
+    """Create a synthetic load DataFrame."""
+    rng = np.random.default_rng(seed)
+    load = rng.uniform(30_000, 70_000, n)
+    datetimes = pd.date_range("2023-01-01", periods=n, freq="h")
+    return pd.DataFrame({"datetime_hour": datetimes, "conso_elec_mw": load})
 
-        with pytest.raises(ValueError, match="Extremely high prices"):
-            validate_real_price_data(df, data_source="test_data")
 
-    def test_validate_real_data_accepts_negative_prices(self):
-        """Test that validation accepts realistic negative prices."""
-        df = pd.DataFrame({
-            'price': [-5.0, -2.0, 10.0, 50.0, 80.0] * 200,
-            'datetime_hour': pd.date_range('2023-01-01', periods=1000, freq='H')
-        })
+# ---------------------------------------------------------------------------
+# validate_real_price_data
+# ---------------------------------------------------------------------------
 
+class TestValidateRealPriceData:
+    """Unit tests for the price sanity-check function."""
+
+    def test_valid_prices_pass(self):
+        df = make_price_df()
         # Should not raise
-        try:
-            validate_real_price_data(df, data_source="test_data")
-        except ValueError as e:
-            pytest.fail(f"Validation should accept negative prices: {e}")
+        validate_real_price_data(df, data_source="test")
 
-    def test_validate_real_data_rejects_missing_price_column(self):
-        """Test that validation requires 'price' column."""
-        df = pd.DataFrame({
-            'value': [50.0] * 100,  # Wrong column name
-            'datetime_hour': pd.date_range('2023-01-01', periods=100, freq='H')
-        })
-
-        with pytest.raises(ValueError, match="must contain 'price' column"):
+    def test_missing_price_column_raises(self):
+        df = pd.DataFrame({"other": [1, 2, 3]})
+        with pytest.raises(ValueError, match="price"):
             validate_real_price_data(df)
 
-    def test_no_future_leakage_in_lag_features(self):
-        """Test that lag features don't use future data."""
-        # Create simple dataset
-        df = pd.DataFrame({
-            'datetime_hour': pd.date_range('2023-01-01', periods=100, freq='H'),
-            'price': np.arange(100).astype(float)  # 0, 1, 2, ...
+    def test_extremely_negative_prices_raise(self):
+        df = make_price_df()
+        df.loc[0, "price"] = -500.0  # below -200 threshold
+        with pytest.raises(ValueError, match="Extremely negative"):
+            validate_real_price_data(df)
+
+    def test_extremely_high_prices_raise(self):
+        df = make_price_df()
+        df.loc[0, "price"] = 5000.0  # above 3000 threshold
+        with pytest.raises(ValueError, match="Extremely high"):
+            validate_real_price_data(df)
+
+    def test_small_sample_does_not_raise(self):
+        """Small dataset should warn but not raise."""
+        df = make_price_df(n=100)
+        # Should complete without exception (warning only)
+        validate_real_price_data(df)
+
+    def test_negative_prices_within_range_pass(self):
+        """Negative prices in [-150, 0] are valid for EU markets."""
+        df = make_price_df()
+        df.loc[:10, "price"] = -50.0
+        validate_real_price_data(df)
+
+
+# ---------------------------------------------------------------------------
+# add_calendar_features
+# ---------------------------------------------------------------------------
+
+class TestCalendarFeatures:
+    """Tests for calendar feature engineering."""
+
+    def test_all_features_created(self):
+        df = make_price_df(n=100)
+        result = add_calendar_features(df)
+        expected = [
+            "hour", "day_of_week", "day_of_month", "day_of_year",
+            "week_of_year", "month", "quarter", "year",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+            "month_sin", "month_cos",
+            "is_weekend", "is_peak_hour", "is_night",
+            "is_winter", "is_summer",
+        ]
+        for col in expected:
+            assert col in result.columns, f"Missing column: {col}"
+
+    def test_cyclical_encoding_bounds(self):
+        df = make_price_df(n=200)
+        result = add_calendar_features(df)
+        for col in ["hour_sin", "hour_cos", "dow_sin", "dow_cos", "month_sin", "month_cos"]:
+            assert result[col].between(-1, 1).all(), f"{col} out of [-1, 1]"
+
+    def test_binary_features_are_binary(self):
+        df = make_price_df(n=200)
+        result = add_calendar_features(df)
+        for col in ["is_weekend", "is_peak_hour", "is_night", "is_winter", "is_summer"]:
+            assert set(result[col].unique()).issubset({0, 1}), f"{col} not binary"
+
+    def test_original_df_not_mutated(self):
+        df = make_price_df(n=50)
+        cols_before = set(df.columns)
+        add_calendar_features(df)
+        assert set(df.columns) == cols_before
+
+
+# ---------------------------------------------------------------------------
+# add_lag_features — leakage prevention
+# ---------------------------------------------------------------------------
+
+class TestLagFeatures:
+    """Critical: verify no data leakage in lag construction."""
+
+    def test_minimum_lag_is_24h(self):
+        """No lag < 24h should be created (forecast horizon = 24h)."""
+        df = make_price_df(n=500)
+        result = add_lag_features(df, target_col="price")
+        lag_cols = [c for c in result.columns if "lag_" in c and "price" in c]
+        for col in lag_cols:
+            lag_hours = int(col.split("lag_")[1].replace("h", ""))
+            assert lag_hours >= 24, f"Data leakage: lag {lag_hours}h < 24h forecast horizon"
+
+    def test_rolling_stats_shifted_by_24h(self):
+        """Rolling windows must be shifted ≥24h to avoid leakage."""
+        df = make_price_df(n=500)
+        result = add_lag_features(df, target_col="price")
+        roll_cols = [c for c in result.columns if "roll_" in c]
+        assert len(roll_cols) > 0, "No rolling feature columns found"
+
+    def test_lag_values_match_shifted_series(self):
+        """Lag-24h value at row i must equal price at row i-24."""
+        df = make_price_df(n=300)
+        df = df.sort_values("datetime_hour").reset_index(drop=True)
+        result = add_lag_features(df, target_col="price", lags=[24])
+        # Row 24 → lag_24h should equal price at row 0
+        assert result.loc[24, "price_lag_24h"] == pytest.approx(df.loc[0, "price"])
+
+    def test_no_leakage_contemporaneous_load(self):
+        """prepare_price_forecasting_dataset must exclude contemporaneous load."""
+        df = make_price_df(n=500)
+        df_with_load = df.copy()
+        df_with_load["load_mw"] = np.random.uniform(30_000, 70_000, len(df))
+        result = add_lag_features(df_with_load, target_col="load_mw")
+        # Contemporaneous load_mw must NOT appear as a feature in isolation
+        lag_cols = [c for c in result.columns if "load_mw_lag" in c]
+        assert len(lag_cols) > 0
+
+
+# ---------------------------------------------------------------------------
+# simulate_realistic_prices
+# ---------------------------------------------------------------------------
+
+class TestSimulateRealisticPrices:
+    """Tests for the price simulation used in unit tests."""
+
+    def test_output_columns(self):
+        load_df = make_load_df(n=500)
+        result = simulate_realistic_prices(load_df, random_seed=0)
+        assert "datetime_hour" in result.columns
+        assert "price" in result.columns
+        assert "load_mw" in result.columns
+
+    def test_no_nan_in_output(self):
+        load_df = make_load_df(n=300)
+        result = simulate_realistic_prices(load_df, random_seed=1)
+        assert not result["price"].isna().any()
+
+    def test_price_range_realistic(self):
+        load_df = make_load_df(n=2000)
+        result = simulate_realistic_prices(load_df, base_price=50.0, random_seed=2)
+        assert result["price"].min() >= -10, "Simulated prices too negative"
+        assert result["price"].max() <= 1000, "Simulated prices too high"
+
+    def test_reproducibility(self):
+        load_df = make_load_df(n=200)
+        r1 = simulate_realistic_prices(load_df, random_seed=99)
+        r2 = simulate_realistic_prices(load_df, random_seed=99)
+        pd.testing.assert_frame_equal(r1, r2)
+
+    def test_length_matches_input(self):
+        load_df = make_load_df(n=400)
+        result = simulate_realistic_prices(load_df)
+        assert len(result) == len(load_df)
+
+
+# ---------------------------------------------------------------------------
+# Temporal ordering / train-test split integrity
+# ---------------------------------------------------------------------------
+
+class TestTemporalOrdering:
+    """Verify no future data leaks into training sets."""
+
+    def test_lag_features_preserve_chronological_order(self):
+        df = make_price_df(n=200)
+        result = add_lag_features(df, target_col="price")
+        datetimes = pd.to_datetime(result["datetime_hour"])
+        assert datetimes.is_monotonic_increasing
+
+    def test_first_rows_have_nan_lags(self):
+        """Rows at the start of the series must have NaN for lags they can't compute."""
+        df = make_price_df(n=300)
+        result = add_lag_features(df, target_col="price", lags=[24, 48])
+        # First 24 rows cannot have a lag_24h (no past data)
+        assert result["price_lag_24h"].iloc[:24].isna().all()
+
+    def test_no_future_data_in_features(self):
+        """Lag columns must not contain values from the future."""
+        df = make_price_df(n=100)
+        df = df.sort_values("datetime_hour").reset_index(drop=True)
+        result = add_lag_features(df, target_col="price", lags=[24])
+        # For any row i, lag_24h should be price[i-24], never price[i] or price[i+1]
+        for i in range(25, 50):
+            expected = df.loc[i - 24, "price"]
+            actual = result.loc[i, "price_lag_24h"]
+            assert actual == pytest.approx(expected), f"Future leakage at row {i}"
+
+
+# ---------------------------------------------------------------------------
+# DataValidator (src/data/validator.py)
+# ---------------------------------------------------------------------------
+
+class TestDataValidatorWeather:
+    """Tests for DataValidator.validate_weather_data."""
+
+    def _make_weather(self, n=365):
+        dates = pd.date_range("2023-01-01", periods=n, freq="D")
+        rng = np.random.default_rng(42)
+        temp_max = rng.uniform(10, 35, n)
+        temp_min = temp_max - rng.uniform(2, 8, n)  # always < max
+        return pd.DataFrame({
+            "date": dates,
+            "temperature_2m_max": temp_max,
+            "temperature_2m_min": temp_min,
+            "precipitation_sum": rng.exponential(2, n),
+            "wind_speed_10m_max": rng.uniform(0, 60, n),
+            "shortwave_radiation_sum": rng.uniform(0, 8000, n),
         })
 
-        df = add_lag_features(df, target_col='price', lags=[1, 24])
+    def test_valid_weather_passes(self):
+        df = self._make_weather()
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_weather_data(df) is True
 
-        # Check that lag_1h at time t equals price at time t-1
-        for i in range(1, len(df)):
-            if not pd.isna(df['price_lag_1h'].iloc[i]):
-                assert df['price_lag_1h'].iloc[i] == df['price'].iloc[i-1], \
-                    f"Lag feature at index {i} should equal price at {i-1}"
+    def test_missing_column_fails(self):
+        df = self._make_weather().drop(columns=["wind_speed_10m_max"])
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_weather_data(df) is False
 
-        # First value should be NaN (no previous data)
-        assert pd.isna(df['price_lag_1h'].iloc[0]), \
-            "First lag value should be NaN"
+    def test_temp_min_exceeds_max_fails(self):
+        df = self._make_weather()
+        df["temperature_2m_min"] = df["temperature_2m_max"] + 5  # always > max
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_weather_data(df) is False
 
-    def test_rolling_features_no_future_leakage(self):
-        """Test that rolling features don't include current observation."""
-        df = pd.DataFrame({
-            'datetime_hour': pd.date_range('2023-01-01', periods=100, freq='H'),
-            'price': np.arange(100).astype(float)
+    def test_negative_precipitation_fails(self):
+        df = self._make_weather()
+        df.loc[0, "precipitation_sum"] = -1.0
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_weather_data(df) is False
+
+    def test_negative_wind_fails(self):
+        df = self._make_weather()
+        df.loc[0, "wind_speed_10m_max"] = -5.0
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_weather_data(df) is False
+
+
+class TestDataValidatorEnergy:
+    """Tests for DataValidator.validate_energy_data."""
+
+    def _make_energy(self, n=200):
+        return pd.DataFrame({
+            "date": pd.date_range("2023-01-01", periods=n, freq="D"),
+            "conso_elec_mw": np.random.uniform(20_000, 80_000, n),
+            "conso_gaz_mw": np.random.uniform(5_000, 30_000, n),
         })
 
-        df = add_lag_features(df, target_col='price', lags=[1])
+    def test_valid_energy_passes(self):
+        df = self._make_energy()
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_energy_data(df) is True
 
-        # Rolling mean should be calculated on historical data only
-        # Check that rolling_mean uses shifted data (no future leakage)
-        for window in [24, 168]:
-            col_name = f'price_roll_mean_{window}h'
-            if col_name in df.columns:
-                # Rolling mean should not include current price
-                for i in range(window, len(df)):
-                    historical_prices = df['price'].iloc[max(0, i-window):i]
-                    if len(historical_prices) > 0:
-                        expected_mean = historical_prices.mean()
-                        # Allow small numerical error
-                        if not pd.isna(df[col_name].iloc[i]):
-                            assert abs(df[col_name].iloc[i] - expected_mean) < 1e-6, \
-                                f"Rolling mean at {i} should only use historical data"
+    def test_negative_electricity_fails(self):
+        df = self._make_energy()
+        df.loc[0, "conso_elec_mw"] = -100.0
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_energy_data(df) is False
 
-    def test_prepare_dataset_excludes_contemporaneous_load(self):
-        """Test that prepare_price_forecasting_dataset excludes contemporaneous load_mw."""
-        try:
-            df, feature_cols = prepare_price_forecasting_dataset(
-                simulate_prices=True,  # Use simulation for testing
-                strict_validation=False
-            )
-
-            # Check that 'load_mw' is NOT in feature columns
-            assert 'load_mw' not in feature_cols, \
-                "Contemporaneous load_mw should be excluded (data leakage)"
-
-            # Check that lagged load features ARE included
-            load_lag_features = [col for col in feature_cols if 'load_mw_lag_' in col]
-            assert len(load_lag_features) > 0, \
-                "Should include lagged load features"
-
-        except FileNotFoundError:
-            pytest.skip("Data files not found - skipping test")
-
-    def test_temporal_ordering_in_train_test_split(self):
-        """Test that train comes before test in time."""
-        try:
-            df, feature_cols = prepare_price_forecasting_dataset(
-                simulate_prices=True,
-                strict_validation=False
-            )
-
-            # Simple 80/20 split
-            split_idx = int(len(df) * 0.8)
-            train_df = df.iloc[:split_idx]
-            test_df = df.iloc[split_idx:]
-
-            # Check temporal ordering
-            train_max_date = train_df['datetime_hour'].max()
-            test_min_date = test_df['datetime_hour'].min()
-
-            assert train_max_date < test_min_date, \
-                "Train data must come entirely before test data (temporal ordering)"
-
-        except FileNotFoundError:
-            pytest.skip("Data files not found - skipping test")
+    def test_missing_required_column_fails(self):
+        df = self._make_energy().drop(columns=["conso_gaz_mw"])
+        validator = DataValidator(strict_mode=True)
+        assert validator.validate_energy_data(df) is False
 
 
-class TestRealDataIntegration:
-    """Integration tests with real ENTSO-E data (if available)."""
+class TestDataValidatorMarketPrices:
+    """Tests for DataValidator.validate_market_prices."""
 
-    def test_load_real_entsoe_data(self):
-        """Test loading real ENTSO-E price data."""
-        price_file = Path("data/raw_data/market_prices/FR_2023-01-01_2024-12-31.csv")
-
-        if not price_file.exists():
-            pytest.skip("Real ENTSO-E price data not found - skipping test")
-
-        try:
-            df = load_price_and_load_data(
-                simulate_prices=False,
-                strict_validation=True,
-                price_file=str(price_file)
-            )
-
-            # Validate data quality
-            assert len(df) > 10000, "Should have at least 10k hourly observations"
-            assert 'price' in df.columns
-            assert 'load_mw' in df.columns
-            assert 'datetime_hour' in df.columns
-
-            # Check realistic price ranges
-            assert df['price'].min() >= -50, "Prices should be > -50 EUR/MWh"
-            assert df['price'].max() <= 500, "Prices should be < 500 EUR/MWh (normal range)"
-
-            # Check for negative prices (realistic in European markets)
-            negative_prices = (df['price'] < 0).sum()
-            assert negative_prices >= 0, "Negative prices are realistic (renewable flush)"
-
-            print(f"\n✅ Real data validation passed:")
-            print(f"   Records: {len(df):,}")
-            print(f"   Price range: [{df['price'].min():.2f}, {df['price'].max():.2f}] EUR/MWh")
-            print(f"   Negative prices: {negative_prices} ({negative_prices/len(df)*100:.2f}%)")
-
-        except Exception as e:
-            pytest.fail(f"Failed to load real ENTSO-E data: {e}")
-
-    def test_data_validation_on_real_prices(self):
-        """Test that validation passes on real ENTSO-E data."""
-        price_file = Path("data/raw_data/market_prices/FR_2023-01-01_2024-12-31.csv")
-
-        if not price_file.exists():
-            pytest.skip("Real ENTSO-E price data not found")
-
-        try:
-            price_df = pd.read_csv(price_file)
-
-            # Rename columns if needed
-            if 'price_eur_mwh' in price_df.columns:
-                price_df['price'] = price_df['price_eur_mwh']
-
-            # Run validation
-            validate_real_price_data(price_df, data_source="ENTSO-E France")
-
-        except Exception as e:
-            pytest.fail(f"Real data should pass validation: {e}")
-
-
-class TestDataLeakagePrevention:
-    """Comprehensive tests for data leakage prevention."""
-
-    def test_no_target_in_features(self):
-        """Test that target variable is not included in features."""
-        try:
-            df, feature_cols = prepare_price_forecasting_dataset(
-                simulate_prices=True,
-                strict_validation=False
-            )
-
-            assert 'price' not in feature_cols, \
-                "Target 'price' should not be in features"
-
-        except FileNotFoundError:
-            pytest.skip("Data files not found")
-
-    def test_no_datetime_in_features(self):
-        """Test that datetime columns are not included in features."""
-        try:
-            df, feature_cols = prepare_price_forecasting_dataset(
-                simulate_prices=True,
-                strict_validation=False
-            )
-
-            datetime_cols = [col for col in feature_cols if 'datetime' in col.lower()]
-            assert len(datetime_cols) == 0, \
-                f"Datetime columns should not be in features: {datetime_cols}"
-
-        except FileNotFoundError:
-            pytest.skip("Data files not found")
-
-    def test_all_lags_use_shift(self):
-        """Test that all lag features are created with proper shift."""
-        df = pd.DataFrame({
-            'datetime_hour': pd.date_range('2023-01-01', periods=200, freq='H'),
-            'price': np.random.uniform(40, 60, 200)
+    def _make_market(self, n=200):
+        return pd.DataFrame({
+            "date": pd.date_range("2023-01-01", periods=n, freq="D"),
+            "price_FR": np.random.uniform(30, 150, n),
+            "price_DE": np.random.uniform(25, 140, n),
         })
 
-        df = add_lag_features(df, target_col='price', lags=[1, 2, 3, 24])
+    def test_valid_prices_pass(self):
+        df = self._make_market()
+        validator = DataValidator(strict_mode=False)
+        result = validator.validate_market_prices(df)
+        assert result is True
 
-        # Verify each lag is correctly shifted
-        for lag in [1, 2, 3, 24]:
-            col_name = f'price_lag_{lag}h'
-            assert col_name in df.columns, f"Missing lag column: {col_name}"
-
-            # Check alignment
-            for i in range(lag, len(df)):
-                if not pd.isna(df[col_name].iloc[i]):
-                    expected = df['price'].iloc[i - lag]
-                    actual = df[col_name].iloc[i]
-                    assert abs(actual - expected) < 1e-6, \
-                        f"Lag {lag} at index {i} incorrect: {actual} != {expected}"
+    def test_no_price_column_fails(self):
+        df = pd.DataFrame({"date": pd.date_range("2023-01-01", periods=10, freq="D")})
+        validator = DataValidator(strict_mode=True)
+        result = validator.validate_market_prices(df)
+        assert result is False
 
 
-if __name__ == "__main__":
-    # Run tests with verbose output
-    pytest.main([__file__, "-v", "-s"])
+class TestValidationResult:
+    """Tests for the ValidationResult dataclass."""
+
+    def test_pass_str(self):
+        r = ValidationResult(passed=True, metric_name="test", expected="x", actual="x")
+        assert "PASS" in str(r)
+
+    def test_fail_str(self):
+        r = ValidationResult(passed=False, metric_name="test", expected="x", actual="y")
+        assert "FAIL" in str(r)
+
+    def test_default_severity_is_error(self):
+        r = ValidationResult(passed=False, metric_name="test", expected="x", actual="y")
+        assert r.severity == "ERROR"

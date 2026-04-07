@@ -1,5 +1,40 @@
 data/
 models/
+outputs/
+research/
+logs/
+.claude/
+
+# Data files
+*.csv
+*.tsv
+*.xlsx
+*.xlsm
+*.xls
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Images & figures
+*.jpg
+*.jpeg
+*.svg
+*.gif
+*.pdf
+
+# Serialized models & artifacts
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Logs
+*.log
+logs/
 
 # MLflow tracking files
 mlruns/

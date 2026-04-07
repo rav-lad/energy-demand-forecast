@@ -175,7 +175,7 @@ def get_logger(
     """
     # Try to load settings
     try:
-        from src.config.settings import settings
+        from src.utils.settings import settings
 
         if level is None:
             level = getattr(logging, settings.log_level.upper(), logging.INFO)
@@ -235,14 +235,14 @@ if __name__ == "__main__":
     logger.critical("This is a critical message")
 
     # Test file logging
-    file_logger = setup_logger("test_file", log_file="outputs/logs/test.log", level=logging.DEBUG)
+    file_logger = setup_logger("test_file", log_file="outputs_pipeline/logs/test.log", level=logging.DEBUG)
 
     file_logger.info("This goes to both console and file")
 
     # Test JSON logging
     json_logger = setup_logger(
         "test_json",
-        log_file="outputs/logs/test.json",
+        log_file="outputs_pipeline/logs/test.json",
         level=logging.INFO,
         json_format=True,
         console=False,

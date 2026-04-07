@@ -1,0 +1,17 @@
+Walk-Forward Validation Results: xgboost
+================================================================================
+
+mae: 13.4102
+rmse: 18.3375
+mape: 43.8209
+r2: 0.8308
+direction_accuracy: 76.6570
+bias: 1.2805
+error_std: 18.2928
+error_q05: -27.2162
+error_q95: 30.5664
+max_overpredict: 135.5814
+max_underpredict: -256.6386
+n_predictions: 19056
+n_iterations: 819
+coverage_hours: 19655.0000
